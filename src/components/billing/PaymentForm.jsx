@@ -139,23 +139,23 @@ const PaymentForm = ({ payment = null, onSuccess, onCancel }) => {
 
       {/* Selected Invoice Info */}
       {selectedInvoice && (
-        <div className="p-4 bg-luxury-lighter rounded-lg border border-gold-800/20">
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-gray-400">Customer:</p>
-              <p className="font-semibold text-gray-100">{selectedInvoice.customerName}</p>
+              <p className="text-gray-600">Customer:</p>
+              <p className="font-semibold text-gray-900">{selectedInvoice.customerName}</p>
             </div>
             <div>
-              <p className="text-gray-400">Invoice Total:</p>
-              <p className="font-semibold text-gray-100">${selectedInvoice.totalAmount?.toFixed(2)}</p>
+              <p className="text-gray-600">Invoice Total:</p>
+              <p className="font-semibold text-gray-900">${selectedInvoice.totalAmount?.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-gray-400">Already Paid:</p>
-              <p className="font-semibold text-green-400">${(selectedInvoice.paidAmount || 0).toFixed(2)}</p>
+              <p className="text-gray-600">Already Paid:</p>
+              <p className="font-semibold text-green-600">${(selectedInvoice.paidAmount || 0).toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-gray-400">Outstanding Balance:</p>
-              <p className="font-semibold text-red-400">
+              <p className="text-gray-600">Outstanding Balance:</p>
+              <p className="font-semibold text-red-600">
                 ${(selectedInvoice.totalAmount - (selectedInvoice.paidAmount || 0)).toFixed(2)}
               </p>
             </div>
@@ -164,8 +164,8 @@ const PaymentForm = ({ payment = null, onSuccess, onCancel }) => {
       )}
 
       {/* Payment Details */}
-      <div className="space-y-4 p-4 bg-luxury-lighter rounded-lg border border-gold-800/20">
-        <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
           Payment Details
         </h4>
 

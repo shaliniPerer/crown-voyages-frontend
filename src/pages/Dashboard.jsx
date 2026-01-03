@@ -19,6 +19,7 @@ const Dashboard = () => {
   });
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [revenueData, setRevenueData] = useState([]);
+  const [bookingStatusData, setBookingStatusData] = useState([]);
   const [period, setPeriod] = useState('weekly');
 
   useEffect(() => {
@@ -28,10 +29,11 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [metricsRes, bookingsRes, revenueRes] = await Promise.all([
+      const [metricsRes, bookingsRes, revenueRes, statusRes] = await Promise.all([
         dashboardApi.getMetrics().catch(() => ({ data: { totalBookings: 0, totalRevenue: 0, outstandingPayments: 0, activeGuests: 0, monthly: { bookings: 0, revenue: 0 } } })),
         dashboardApi.getUpcomingBookings({ limit: 5 }).catch(() => ({ data: [] })),
-        dashboardApi.getRevenueChart(period).catch(() => ({ data: [] }))
+        dashboardApi.getRevenueChart(period).catch(() => ({ data: [] })),
+        dashboardApi.getLeadStatus().catch(() => ({ data: [] }))
       ]);
 
       setMetrics(metricsRes.data || {
@@ -43,9 +45,9 @@ const Dashboard = () => {
       });
       setUpcomingBookings(bookingsRes.data || []);
       setRevenueData(revenueRes.data || []);
+      setBookingStatusData(statusRes.data?.data || statusRes.data || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -80,13 +82,6 @@ const Dashboard = () => {
       color: 'from-blue-600 to-blue-500',
       change: '+5.7%'
     },
-  ];
-
-  const bookingStatusData = [
-    { name: 'Confirmed', value: 45, color: '#10B981' },
-    { name: 'Pending', value: 25, color: '#F59E0B' },
-    { name: 'Cancelled', value: 10, color: '#EF4444' },
-    { name: 'Completed', value: 20, color: '#D4AF37' },
   ];
 
   if (loading) return <Loader />;
@@ -162,7 +157,7 @@ const Dashboard = () => {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={bookingStatusData}
+                data={Array.isArray(bookingStatusData) ? bookingStatusData : []}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -171,7 +166,7 @@ const Dashboard = () => {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {bookingStatusData.map((entry, index) => (
+                {(Array.isArray(bookingStatusData) ? bookingStatusData : []).map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>

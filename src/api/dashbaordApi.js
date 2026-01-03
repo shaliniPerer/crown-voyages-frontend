@@ -7,4 +7,5 @@ export const dashboardApi = {
   getOutstandingPayments: () => axios.get('/dashboard/outstanding-payments'),
   getRevenueChart: (period) => axios.get(`/dashboard/revenue-chart?period=${period}`),
   getLeadFunnel: () => axios.get('/dashboard/lead-funnel'),
+  getLeadStatus: () => axios.get('/dashboard/lead-status'),
 };

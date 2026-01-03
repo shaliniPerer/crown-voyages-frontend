@@ -78,8 +78,8 @@ const ResortManagement = () => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     setImageFiles(files);
-    const previews = files.map(f => URL.createObjectURL(f));
-    setImagePreviews(previews);
+    const newPreviews = files.map(f => URL.createObjectURL(f));
+    setImagePreviews([...formData.images, ...newPreviews]);
   };
 
   /* ---------------- SUBMIT ---------------- */
@@ -178,8 +178,43 @@ const ResortManagement = () => {
 
       {/* Edit/Create Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingResort ? 'Edit Resort' : 'Add Resort'} size="large">
-        {/* ...same form as before... */}
-        {/* Copy your existing form from the previous code here */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
+          <Input label="Location" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} required />
+          <Input label="Description" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+          <Input label="Star Rating" type="number" min="1" max="5" value={formData.starRating} onChange={e => setFormData({ ...formData, starRating: parseInt(e.target.value) })} />
+          
+          <div>
+            <label className="text-sm text-gray-300">Meal Plan</label>
+            <select className="input-luxury w-full" value={formData.mealPlan} onChange={e => setFormData({ ...formData, mealPlan: e.target.value })}>
+              <option value="">Select Meal Plan</option>
+              <option value="All Inclusive">All Inclusive</option>
+              <option value="Half Board">Half Board</option>
+              <option value="Full Board">Full Board</option>
+              <option value="Bed & Breakfast">Bed & Breakfast</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-300">Amenities</label>
+            <input className="input-luxury w-full" value={formData.amenities.join(', ')} onChange={e => setFormData({ ...formData, amenities: e.target.value.split(',').map(a => a.trim()).filter(a => a) })} placeholder="Comma separated amenities" />
+          </div>
+
+          {/* Images */}
+          <div>
+            <label className="text-sm text-gray-300">Images</label>
+            <input type="file" multiple accept="image/*" onChange={handleImageChange} className="input-luxury w-full" />
+            {imagePreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {imagePreviews.map((preview, i) => (
+                  <img key={i} src={preview} alt={`preview-${i}`} className="w-20 h-20 object-cover rounded" />
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Button type="submit" className="w-full">{editingResort ? 'Update Resort' : 'Create Resort'}</Button>
+        </form>
       </Modal>
 
       {/* Profile Modal */}

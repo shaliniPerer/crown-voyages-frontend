@@ -18,6 +18,7 @@ const RoomManagement = () => {
   const [showProfile, setShowProfile] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
 
   const [formData, setFormData] = useState({
     resort: '',
@@ -86,6 +87,7 @@ const RoomManagement = () => {
         newAvailability: { startDate: '', endDate: '' },
         images: room.images || [],
       });
+      setImagePreviews(room.images || []);
     } else {
       setEditingRoom(null);
       setFormData({
@@ -107,6 +109,8 @@ const RoomManagement = () => {
         newAvailability: { startDate: '', endDate: '' },
         images: [],
       });
+      setImageFiles([]);
+      setImagePreviews([]);
     }
     setShowModal(true);
   };
@@ -161,7 +165,12 @@ const RoomManagement = () => {
   }));
 
   /* ---------------- IMAGES ---------------- */
-  const handleImageChange = e => setImageFiles(Array.from(e.target.files));
+  const handleImageChange = e => {
+    const files = Array.from(e.target.files);
+    setImageFiles(files);
+    const newPreviews = files.map(f => URL.createObjectURL(f));
+    setImagePreviews([...formData.images, ...newPreviews]);
+  };
 
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async e => {
@@ -171,8 +180,16 @@ const RoomManagement = () => {
       if (imageFiles.length > 0) {
         const fd = new FormData();
         imageFiles.forEach(f => fd.append('images', f));
-        const uploadRes = await uploadApi.uploadMultipleImages(fd);
-        imageUrls = uploadRes?.data?.urls || [];
+        fd.append('folder', 'rooms');
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/upload/images', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Upload failed');
+        imageUrls = [...imageUrls, ...data.data.urls];
       }
 
       const payload = { ...formData, images: imageUrls };
@@ -190,9 +207,10 @@ const RoomManagement = () => {
       }
       setShowModal(false);
       setImageFiles([]);
+      setImagePreviews([]);
       fetchRooms();
-    } catch {
-      toast.error('Operation failed');
+    } catch (error) {
+      toast.error(error.message || 'Operation failed');
     }
   };
 
@@ -310,7 +328,17 @@ const RoomManagement = () => {
           </div>
 
           {/* Images */}
-          <input type="file" multiple onChange={handleImageChange} />
+          <div>
+            <label className="text-sm text-gray-300">Images</label>
+            <input type="file" multiple accept="image/*" onChange={handleImageChange} className="input-luxury w-full" />
+            {imagePreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {imagePreviews.map((preview, i) => (
+                  <img key={i} src={preview} alt={`preview-${i}`} className="w-20 h-20 object-cover rounded" />
+                ))}
+              </div>
+            )}
+          </div>
           <Button type="submit" className="w-full">{editingRoom ? 'Update Room' : 'Create Room'}</Button>
         </form>
       </Modal>

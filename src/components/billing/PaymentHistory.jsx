@@ -141,9 +141,9 @@ const PaymentHistory = ({ payments = [], invoiceId = null }) => {
 
                   {/* Notes */}
                   {payment.notes && (
-                    <div className="mt-3 p-3 bg-luxury-lighter rounded-lg border border-gold-800/10">
-                      <p className="text-xs text-gray-500 mb-1">Notes</p>
-                      <p className="text-sm text-gray-300">{payment.notes}</p>
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-xs text-gray-600 mb-1">Notes</p>
+                      <p className="text-sm text-gray-900">{payment.notes}</p>
                     </div>
                   )}
 

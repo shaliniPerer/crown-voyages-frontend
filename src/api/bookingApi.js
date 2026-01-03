@@ -3,6 +3,9 @@ import axios from './axios';
 export const bookingApi = {
   createLead: (data) => axios.post('/bookings/lead', data),
   getLeads: (params) => axios.get('/bookings/leads', { params }),
+  updateLead: (id, data) => axios.patch(`/bookings/lead/${id}`, data),
+  getLead: (id) => axios.get(`/bookings/lead/${id}`),
+  createBooking: (data) => axios.post('/bookings', data),
   createQuotation: (data) => axios.post('/bookings/quotation', data),
   getQuotations: (params) => axios.get('/bookings/quotations', { params }),
   updateQuotationStatus: (id, status) => axios.patch(`/bookings/quotation/${id}/status`, { status }),
@@ -14,4 +17,14 @@ export const bookingApi = {
   getBookingById: (id) => axios.get(`/bookings/${id}`),
   updateBooking: (id, data) => axios.patch(`/bookings/${id}`, data),
   deleteBooking: (id) => axios.delete(`/bookings/${id}`),
+  createVoucher: (data) => axios.post('/bookings/voucher', data),
+  // Invoice & Receipt APIs
+  createInvoice: (data) => axios.post('/bookings/invoice', data),
+  exportInvoicePDF: (id) => axios.get(`/bookings/invoice/${id}/pdf`, { responseType: 'blob' }),
+  sendInvoiceEmail: (id) => axios.post(`/bookings/invoice/${id}/send-email`),
+  createReceipt: (data) => axios.post('/bookings/receipt', data),
+  exportReceiptPDF: (id) => axios.get(`/bookings/receipt/${id}/pdf`, { responseType: 'blob' }),
+  sendReceiptEmail: (id) => axios.post(`/bookings/receipt/${id}/send-email`),
+  getReceipts: (params) => axios.get('/bookings/receipts', { params }),
+  recordPayment: (data) => axios.post('/billing/payments', data),
 };

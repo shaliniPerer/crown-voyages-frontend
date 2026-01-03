@@ -135,8 +135,8 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
       />
 
       {/* Customer Information */}
-      <div className="space-y-4 p-4 bg-luxury-lighter rounded-lg border border-gold-800/20">
-        <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
           Customer Information
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -166,8 +166,8 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
       </div>
 
       {/* Invoice Amounts */}
-      <div className="space-y-4 p-4 bg-luxury-lighter rounded-lg border border-gold-800/20">
-        <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+      <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
           Invoice Amounts
         </h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

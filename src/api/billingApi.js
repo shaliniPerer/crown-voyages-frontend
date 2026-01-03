@@ -15,4 +15,5 @@ export const billingApi = {
   getReminders: () => axios.get('/billing/reminders'),
   updateReminder: (id, data) => axios.patch(`/billing/reminders/${id}`, data),
   deleteReminder: (id) => axios.delete(`/billing/reminders/${id}`),
+  createReceipt: (data) => axios.post('/billing/receipts', data),
 };

@@ -6,6 +6,11 @@ import Signup from './pages/auth/Signup';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Booking from './pages/Booking';
+import Travel from './pages/Travel';
+import TravelOverview from './pages/TravelOverview';
+import TravelRooms from './pages/TravelRooms';
+import TravelRoomDetails from './pages/TravelRoomDetails';
+import BookingFlow from './pages/BookingFlow';
 import ResortManagement from './pages/ResortManagement';
 import RoomManagement from './pages/RoomManagement';
 import Billing from './pages/Billing';
@@ -33,23 +38,29 @@ function App() {
 
         {/* Protected Layout */}
         {user && (
-          <Route path="/" element={<Layout />}>
-            {/* Dashboard as default route */}
-            <Route index element={<Dashboard />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="booking" element={<Booking />} />
-            <Route path="resorts" element={<ResortManagement />} />
-            <Route path="rooms" element={<RoomManagement />} />
-            <Route path="billing" element={<Billing />} />
-            <Route
-              path="users"
-              element={user?.role === 'Admin' ? <UserManagement /> : <Navigate to="/dashboard" replace />}
-            />
-          </Route>
+          <>
+            <Route path="/" element={<Layout />}>
+              {/* Dashboard as default route */}
+              <Route index element={<Dashboard />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="booking" element={<Booking />} />
+              <Route path="resorts" element={<ResortManagement />} />
+              <Route path="rooms" element={<RoomManagement />} />
+              <Route path="billing" element={<Billing />} />
+              <Route
+                path="users"
+                element={user?.role === 'Admin' ? <UserManagement /> : <Navigate to="/dashboard" replace />}
+              />
+            </Route>
+            {/* Travel routes without layout */}
+            <Route path="/travel" element={<Travel />} />
+            <Route path="/travel/overview/:resortId" element={<TravelOverview />} />
+            <Route path="/travel/rooms/:resortId" element={<TravelRooms />} />
+            <Route path="/travel/room/:roomId" element={<TravelRoomDetails />} />
+            <Route path="/travel/booking/:roomId" element={<BookingFlow />} />
+          </>
         )}
-
-        {/* Fallback route */}
         <Route
           path="*"
           element={<Navigate to={user ? "/dashboard" : "/login"} replace />}

@@ -20,10 +20,10 @@ export default {
           900: '#7D5606',
         },
         luxury: {
-          dark: '#0A0A0A',
-          darker: '#000000',
-          light: '#1A1A1A',
-          lighter: '#2A2A2A',
+          dark: '#0F172A',
+          darker: '#1E293B',
+          light: '#334155',
+          lighter: '#475569',
         }
       },
       fontFamily: {

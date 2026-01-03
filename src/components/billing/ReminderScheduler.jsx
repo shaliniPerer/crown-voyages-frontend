@@ -223,13 +223,13 @@ Thank you for your prompt attention.`
             required
           />
 
-          <div className="text-sm text-gray-400 bg-luxury-lighter p-3 rounded-lg">
+          <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
             <p className="font-semibold mb-2">Available Placeholders:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li><code className="text-gold-500">{'{customer_name}'}</code> - Customer's name</li>
-              <li><code className="text-gold-500">{'{invoice_number}'}</code> - Invoice number</li>
-              <li><code className="text-gold-500">{'{amount}'}</code> - Invoice amount</li>
-              <li><code className="text-gold-500">{'{due_date}'}</code> - Payment due date</li>
+              <li><code className="text-gold-600">{'{customer_name}'}</code> - Customer's name</li>
+              <li><code className="text-gold-600">{'{invoice_number}'}</code> - Invoice number</li>
+              <li><code className="text-gold-600">{'{amount}'}</code> - Invoice amount</li>
+              <li><code className="text-gold-600">{'{due_date}'}</code> - Payment due date</li>
             </ul>
           </div>
 
@@ -295,8 +295,8 @@ Thank you for your prompt attention.`
                     </div>
                   </div>
 
-                  <div className="bg-luxury-lighter p-3 rounded-lg border border-gold-800/10">
-                    <p className="text-sm text-gray-300 whitespace-pre-wrap">
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap">
                       {reminder.template}
                     </p>
                   </div>

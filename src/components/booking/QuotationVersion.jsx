@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import Input from '../common/Input';
 import Select from '../common/Select';
-import Textarea from '../common/Textarea';
 import Button from '../common/Button';
 
 // Quotation Versions Component
@@ -13,7 +12,7 @@ export const QuotationVersions = ({ versions = [], onSelectVersion }) => {
         versions.map((version, index) => (
           <div 
             key={index}
-            className="p-4 bg-luxury-lighter rounded-lg border border-gold-800/20 hover:border-gold-600 transition-colors duration-200 cursor-pointer"
+            className="p-4 bg-white rounded-lg border border-gray-200 hover:border-gold-600 transition-colors duration-200 cursor-pointer shadow-sm hover:shadow-md"
             onClick={() => onSelectVersion(version)}
           >
             <div className="flex items-center justify-between mb-2">

@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiMail, FiFileText, FiEye } from 'react-icons/fi';
+import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
-import { bookingApi} from '../api/bookingApi';
-import {  resortApi} from '../api/resortApi';
+import { bookingApi } from '../api/bookingApi';
+import { resortApi } from '../api/resortApi';
 import { toast } from 'react-toastify';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { formatDate, calculateNights } from '../utils/bookingUtils';
+
 
 const Booking = () => {
   const [activeTab, setActiveTab] = useState('leads');
@@ -17,23 +20,44 @@ const Booking = () => {
   const [bookings, setBookings] = useState([]);
   const [resorts, setResorts] = useState([]);
   const [formData, setFormData] = useState({});
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showQuotationModal, setShowQuotationModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tab = searchParams.get('tab');
+    if (tab && ['leads', 'quotations', 'bookings'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     fetchData();
     fetchResorts();
   }, [activeTab]);
 
+  // Also fetch data when component mounts
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const fetchData = async () => {
     try {
       if (activeTab === 'leads') {
         const res = await bookingApi.getLeads();
-        setLeads(res.data);
+        setLeads(res.data.data || []);
       } else if (activeTab === 'quotations') {
         const res = await bookingApi.getQuotations();
-        setQuotations(res.data);
+        setQuotations(res.data.data || []);
       } else {
         const res = await bookingApi.getBookings();
-        setBookings(res.data);
+        setBookings(res.data.data || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -55,6 +79,79 @@ const Booking = () => {
     setFormData({});
   };
 
+  const handleOpenProfile = (lead) => {
+    setSelectedLead(lead);
+    setShowProfileModal(true);
+  };
+
+  const handleOpenEdit = (lead) => {
+    setSelectedLead(lead);
+    setFormData({
+      guestName: lead.guestName,
+      email: lead.email,
+      phone: lead.phone,
+      source: lead.source,
+      status: lead.status,
+      resort: lead.resort?._id || '',
+      room: lead.room?._id || '',
+      checkIn: lead.checkIn ? new Date(lead.checkIn).toISOString().split('T')[0] : '',
+      checkOut: lead.checkOut ? new Date(lead.checkOut).toISOString().split('T')[0] : '',
+      adults: lead.adults || 1,
+      children: lead.children || 0,
+      rooms: lead.rooms || 1,
+      mealPlan: lead.mealPlan || '',
+      specialRequests: lead.specialRequests || '',
+      totalAmount: lead.totalAmount || 0,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleOpenQuotation = (lead) => {
+    setSelectedLead(lead);
+    setFormData({ 
+      amount: '', 
+      items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
+      taxRate: 0,
+      discountType: 'none',
+      discountValue: 0,
+      notes: '',
+      terms: '',
+      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      sendEmail: false
+    });
+    setShowQuotationModal(true);
+  };
+
+  const handleOpenInvoice = (lead) => {
+    setSelectedLead(lead);
+    setFormData({ 
+      amount: '', 
+      items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
+      taxRate: 0,
+      discountType: 'none',
+      discountValue: 0,
+      notes: '',
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      sendEmail: false
+    });
+    setShowInvoiceModal(true);
+  };
+
+  const handleOpenReceipt = (lead) => {
+    setSelectedLead(lead);
+    setFormData({ 
+      amount: '', 
+      items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
+      taxRate: 0,
+      discountType: 'none',
+      discountValue: 0,
+      notes: '',
+      paymentMethod: 'Cash',
+      sendEmail: false
+    });
+    setShowReceiptModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -72,6 +169,120 @@ const Booking = () => {
     }
   };
 
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // Clean up empty strings before sending
+      const cleanData = { ...formData };
+      if (cleanData.resort === '') delete cleanData.resort;
+      if (cleanData.room === '') delete cleanData.room;
+      
+      await bookingApi.updateLead(selectedLead._id, cleanData);
+      toast.success('Lead updated successfully');
+      setShowEditModal(false);
+      fetchData();
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('Update failed: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleQuotationSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const finalAmount = (formData.amount || 0) - (formData.discountValue || 0);
+
+      const quotationData = {
+        customerName: selectedLead.guestName,
+        email: selectedLead.email,
+        phone: selectedLead.phone,
+        amount: formData.amount || 0,
+        discountValue: formData.discountValue || 0,
+        finalAmount,
+        validUntil: formData.validUntil,
+        notes: formData.notes,
+        terms: formData.terms,
+        lead: selectedLead._id,
+      };
+      const response = await bookingApi.createQuotation(quotationData);
+      toast.success('Quotation created successfully');
+      setShowQuotationModal(false);
+      fetchData();
+      // Optionally send email
+      if (formData.sendEmail) {
+        await bookingApi.sendQuotationEmail(response.data.data._id);
+        toast.success('Email sent successfully');
+      }
+    } catch (error) {
+      console.error('Quotation error:', error);
+      toast.error(error.response?.data?.message || 'Quotation creation failed');
+    }
+  };
+
+  const handleInvoiceSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const finalAmount = (formData.amount || 0) - (formData.discountValue || 0);
+
+      const invoiceData = {
+        customerName: selectedLead.guestName,
+        email: selectedLead.email,
+        phone: selectedLead.phone,
+        amount: formData.amount || 0,
+        discountValue: formData.discountValue || 0,
+        finalAmount,
+        dueDate: formData.dueDate,
+        notes: formData.notes,
+        lead: selectedLead._id,
+      };
+      const response = await bookingApi.createInvoice(invoiceData);
+      toast.success('Invoice created successfully');
+      setShowInvoiceModal(false);
+      setFormData({});
+      fetchData();
+      // Send email if checked
+      if (formData.sendEmail) {
+        await bookingApi.sendInvoiceEmail(response.data.data._id);
+        toast.success('Email sent successfully');
+      }
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      toast.error(error.response?.data?.message || 'Invoice creation failed');
+    }
+  };
+
+  const handleReceiptSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const finalAmount = (formData.amount || 0) - (formData.discountValue || 0);
+
+      const receiptData = {
+        customerName: selectedLead.guestName,
+        email: selectedLead.email,
+        phone: selectedLead.phone,
+        amount: formData.amount || 0,
+        discountValue: formData.discountValue || 0,
+        finalAmount,
+        paymentMethod: formData.paymentMethod || 'Cash',
+        notes: formData.notes,
+        lead: selectedLead._id,
+      };
+      const response = await bookingApi.createReceipt(receiptData);
+      toast.success('Receipt created successfully');
+      setShowReceiptModal(false);
+      setFormData({});
+      fetchData();
+      // Send email if checked
+      if (formData.sendEmail) {
+        await bookingApi.sendReceiptEmail(response.data.data._id);
+        toast.success('Email sent successfully');
+      }
+    } catch (error) {
+      console.error('Error creating receipt:', error);
+      toast.error(error.response?.data?.message || 'Receipt creation failed');
+    }
+  };
+
   const handleSendEmail = async (id) => {
     try {
       await bookingApi.sendQuotationEmail(id);
@@ -82,9 +293,9 @@ const Booking = () => {
   };
 
   const tabs = [
-    { id: 'leads', label: 'Leads' },
-    { id: 'quotations', label: 'Quotations' },
-    { id: 'bookings', label: 'Bookings' },
+    { id: 'leads', label: 'Bookings' },
+    // { id: 'quotations', label: 'Quotations' },
+    // { id: 'bookings', label: 'Bookings' },
   ];
 
   return (
@@ -95,13 +306,20 @@ const Booking = () => {
           <h1 className="text-3xl font-luxury font-bold text-gold-500">Booking Management</h1>
           <p className="text-gray-400 mt-1">Manage leads, quotations, and bookings</p>
         </div>
-        <Button 
-          variant="primary" 
+        <Button
+          variant="primary"
           icon={FiPlus}
-          onClick={() => handleOpenModal(activeTab === 'leads' ? 'lead' : 'quotation')}
+          onClick={() => {
+            if (activeTab === 'leads') {
+              navigate('/travel'); 
+            } else {
+              handleOpenModal('quotation'); 
+            }
+          }}
         >
-          Create {activeTab === 'leads' ? 'Lead' : 'Quotation'}
+          Create {activeTab === 'leads' ? 'Booking' : 'Quotation'}
         </Button>
+
       </div>
 
       {/* Tabs */}
@@ -110,11 +328,10 @@ const Booking = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-300 ${
-              activeTab === tab.id
+            className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-300 ${activeTab === tab.id
                 ? 'bg-gradient-to-r from-gold-600 to-gold-500 text-black shadow-gold'
                 : 'text-gray-400 hover:text-gold-500'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -140,19 +357,61 @@ const Booking = () => {
                 {leads.length > 0 ? (
                   leads.map((lead) => (
                     <tr key={lead._id}>
-                      <td className="font-medium text-gray-100">{lead.customerName}</td>
+                      <td className="font-medium text-gray-100">{lead.guestName}</td>
                       <td>{lead.email}</td>
                       <td>{lead.phone}</td>
                       <td>{lead.source}</td>
                       <td>
-                        <span className={`badge-${lead.status === 'New' ? 'blue' : 'gold'}`}>
+                        <span className={`badge-${
+                          lead.status === 'New' ? 'blue' :
+                          lead.status === 'Quotation' ? 'purple' :
+                          lead.status === 'Invoice' ? 'pink' :
+                          lead.status === 'Receipt' ? 'green' :
+                          lead.status === 'Confirmed' ? 'green' :
+                          lead.status === 'Cancelled' ? 'red' :
+                          'gold'
+                        }`}>
                           {lead.status}
                         </span>
                       </td>
                       <td>
-                        <Button variant="outline" size="small">
-                          Convert to Quotation
-                        </Button>
+                        <div className="flex gap-1 items-center">
+                          <button 
+                            onClick={() => handleOpenProfile(lead)}
+                            className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                            title="View Profile"
+                          >
+                            <FiEye size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleOpenEdit(lead)}
+                            className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                            title="Edit"
+                          >
+                            <FiEdit size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleOpenQuotation(lead)}
+                            className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                            title="Create Quotation"
+                          >
+                            <FiFileText size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleOpenInvoice(lead)}
+                            className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                            title="Create Invoice"
+                          >
+                            <FiDollarSign size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleOpenReceipt(lead)}
+                            className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                            title="Create Receipt"
+                          >
+                            <FiFile size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -169,7 +428,7 @@ const Booking = () => {
         </Card>
       )}
 
-      {activeTab === 'quotations' && (
+      {/* {activeTab === 'quotations' && (
         <Card>
           <div className="overflow-x-auto">
             <table className="table-luxury">
@@ -192,10 +451,9 @@ const Booking = () => {
                       <td>{quote.resort?.name}</td>
                       <td className="font-semibold text-gold-500">${quote.totalAmount?.toLocaleString()}</td>
                       <td>
-                        <span className={`badge-${
-                          quote.status === 'Accepted' ? 'green' : 
-                          quote.status === 'Rejected' ? 'red' : 'gold'
-                        }`}>
+                        <span className={`badge-${quote.status === 'Accepted' ? 'green' :
+                            quote.status === 'Rejected' ? 'red' : 'gold'
+                          }`}>
                           {quote.status}
                         </span>
                       </td>
@@ -204,9 +462,9 @@ const Booking = () => {
                           <Button variant="outline" size="small" icon={FiEye}>
                             View
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="small" 
+                          <Button
+                            variant="outline"
+                            size="small"
                             icon={FiMail}
                             onClick={() => handleSendEmail(quote._id)}
                           >
@@ -230,55 +488,202 @@ const Booking = () => {
             </table>
           </div>
         </Card>
-      )}
+      )} */}
 
-      {activeTab === 'bookings' && (
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="table-luxury">
-              <thead>
-                <tr>
-                  <th>Booking ID</th>
-                  <th>Guest</th>
-                  <th>Resort</th>
-                  <th>Check-in</th>
-                  <th>Check-out</th>
-                  <th>Status</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.length > 0 ? (
-                  bookings.map((booking) => (
-                    <tr key={booking._id}>
-                      <td className="font-mono text-gold-500">{booking.bookingNumber}</td>
-                      <td className="font-medium text-gray-100">{booking.guestName}</td>
-                      <td>{booking.resort?.name}</td>
-                      <td>{new Date(booking.checkIn).toLocaleDateString()}</td>
-                      <td>{new Date(booking.checkOut).toLocaleDateString()}</td>
-                      <td>
-                        <span className={`badge-${
-                          booking.status === 'Confirmed' ? 'green' : 
-                          booking.status === 'Cancelled' ? 'red' : 'gold'
-                        }`}>
-                          {booking.status}
-                        </span>
-                      </td>
-                      <td className="font-semibold text-gold-500">${booking.totalAmount?.toLocaleString()}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="text-center text-gray-400 py-8">
-                      No bookings found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+      {/* {activeTab === 'bookings' && (
+        <div className="space-y-6">
+          {bookings.length > 0 ? (
+            bookings.map((booking) => (
+              <Card key={booking._id} className="p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Hotel Information</h3>
+                      <div className="flex space-x-4">
+                        <img
+                          src={booking.resort?.images?.[0] || "/placeholder.svg"}
+                          alt={booking.resort?.name}
+                          className="w-20 h-20 rounded-lg object-cover"
+                        />
+                        <div className="flex-1">
+                          <h4 className="font-bold text-gray-900">{booking.resort?.name}</h4>
+                          <p className="text-sm text-gray-600">{booking.resort?.location}</p>
+                          <div className="flex items-center mt-2">
+                            <div className="flex text-yellow-400">
+                              {[...Array(booking.resort?.starRating || 5)].map((_, i) => (
+                                <svg key={i} className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                            </div>
+                            <span className="ml-2 text-sm text-gray-600">{booking.resort?.starRating} Star</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Booking Details</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Booking ID</span>
+                          <span className="font-medium text-gold-500">{booking.bookingNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Check-in</span>
+                          <span className="font-medium text-gray-900">{formatDate(booking.checkIn)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Check-out</span>
+                          <span className="font-medium text-gray-900">{formatDate(booking.checkOut)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Duration</span>
+                          <span className="font-medium text-gray-900">
+                            {calculateNights(booking.checkIn, booking.checkOut)} night{calculateNights(booking.checkIn, booking.checkOut) !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Guests</span>
+                          <span className="font-medium text-gray-900">
+                            {booking.adults} Adults, {booking.children} Children
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Rooms</span>
+                          <span className="font-medium text-gray-900">
+                            {booking.rooms} Room{booking.rooms !== 1 ? "s" : ""}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Room Type</span>
+                          <span className="font-medium text-gray-900">{booking.room?.roomType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Meal Plan</span>
+                          <span className="font-medium text-gray-900">
+                            {booking.mealPlan || 'Not specified'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Status</span>
+                          <span className={`badge-${booking.status === 'Confirmed' ? 'green' :
+                              booking.status === 'Cancelled' ? 'red' : 'gold'
+                            }`}>
+                            {booking.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Guest Information</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Name</span>
+                          <span className="font-medium text-gray-900">{booking.guestName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Email</span>
+                          <span className="font-medium text-gray-900">{booking.email}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Phone</span>
+                          <span className="font-medium text-gray-900">{booking.phone}</span>
+                        </div>
+                      </div>
+                      {booking.specialRequests && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium text-gray-700 mb-2">Special Requests</h4>
+                          <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                            {booking.specialRequests}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {booking.passengerDetails && booking.passengerDetails.length > 0 && (
+                      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Passenger Details</h3>
+                        {booking.passengerDetails.map((roomDetail, roomIndex) => (
+                          <div key={roomIndex} className="mb-6">
+                            <h4 className="text-md font-medium text-gray-700 mb-3">Room {roomDetail.roomNumber}</h4>
+                            
+                            {roomDetail.adults && roomDetail.adults.length > 0 && (
+                              <div className="mb-4">
+                                <h5 className="text-sm font-medium text-gray-600 mb-2">Adults</h5>
+                                {roomDetail.adults.map((adult, adultIndex) => (
+                                  <div key={adultIndex} className="bg-gray-50 p-3 rounded-lg mb-2">
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      <div><span className="font-medium">Name:</span> {adult.name || 'Not provided'}</div>
+                                      <div><span className="font-medium">Passport:</span> {adult.passport || 'Not provided'}</div>
+                                      <div><span className="font-medium">Country:</span> {adult.country || 'Not provided'}</div>
+                                      <div><span className="font-medium">Arrival Flight:</span> {adult.arrivalFlightNumber || 'Not provided'}</div>
+                                      <div><span className="font-medium">Arrival Time:</span> {adult.arrivalTime || 'Not provided'}</div>
+                                      <div><span className="font-medium">Departure Flight:</span> {adult.departureFlightNumber || 'Not provided'}</div>
+                                      <div><span className="font-medium">Departure Time:</span> {adult.departureTime || 'Not provided'}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {roomDetail.children && roomDetail.children.length > 0 && (
+                              <div>
+                                <h5 className="text-sm font-medium text-gray-600 mb-2">Children</h5>
+                                {roomDetail.children.map((child, childIndex) => (
+                                  <div key={childIndex} className="bg-blue-50 p-3 rounded-lg mb-2">
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                      <div><span className="font-medium">Name:</span> {child.name || 'Not provided'}</div>
+                                      <div><span className="font-medium">Age:</span> {child.age || 'Not provided'}</div>
+                                      <div><span className="font-medium">Passport:</span> {child.passport || 'Not provided'}</div>
+                                      <div><span className="font-medium">Country:</span> {child.country || 'Not provided'}</div>
+                                      <div><span className="font-medium">Arrival Flight:</span> {child.arrivalFlightNumber || 'Not provided'}</div>
+                                      <div><span className="font-medium">Arrival Time:</span> {child.arrivalTime || 'Not provided'}</div>
+                                      <div><span className="font-medium">Departure Flight:</span> {child.departureFlightNumber || 'Not provided'}</div>
+                                      <div><span className="font-medium">Departure Time:</span> {child.departureTime || 'Not provided'}</div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-6 border-2 border-yellow-500/30">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Booking Summary</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Booking ID</span>
+                          <span className="font-bold text-yellow-600">{booking.bookingNumber}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Status</span>
+                          <span className={`badge-${booking.status === 'Confirmed' ? 'green' :
+                              booking.status === 'Cancelled' ? 'red' : 'gold'
+                            }`}>
+                            {booking.status}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <div className="text-center text-gray-400 py-8">
+                No bookings found
+              </div>
+            </Card>
+          )}
+        </div>
+      )} */}
 
       {/* Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={`Create ${modalType}`}>
@@ -286,30 +691,30 @@ const Booking = () => {
           <Input
             label="Customer Name"
             value={formData.customerName || ''}
-            onChange={(e) => setFormData({...formData, customerName: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
             required
           />
           <Input
             label="Email"
             type="email"
             value={formData.email || ''}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             required
           />
           <Input
             label="Phone"
             value={formData.phone || ''}
-            onChange={(e) => setFormData({...formData, phone: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             required
           />
           {modalType === 'quotation' && (
             <>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Resort</label>
-                <select 
+                <select
                   className="input-luxury w-full"
                   value={formData.resort || ''}
-                  onChange={(e) => setFormData({...formData, resort: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, resort: e.target.value })}
                   required
                 >
                   <option value="">Select Resort</option>
@@ -322,7 +727,7 @@ const Booking = () => {
                 label="Amount"
                 type="number"
                 value={formData.amount || ''}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 required
               />
             </>
@@ -336,6 +741,589 @@ const Booking = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Profile Modal */}
+      <Modal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} title="Lead Profile">
+        {selectedLead && (
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-gold-600 to-gold-500 p-6 rounded-lg text-white">
+              <h3 className="text-2xl font-bold">{selectedLead.guestName}</h3>
+              <p className="text-gold-100">Lead Details</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="bg-luxury-light p-4 rounded-lg">
+                  <h4 className="font-semibold text-gold-500 mb-3">Contact Information</h4>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Email:</span> {selectedLead.email}</p>
+                    <p><span className="font-medium">Phone:</span> {selectedLead.phone}</p>
+                  </div>
+                </div>
+                
+                <div className="bg-luxury-light p-4 rounded-lg">
+                  <h4 className="font-semibold text-gold-500 mb-3">Lead Information</h4>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Source:</span> {selectedLead.source}</p>
+                    <p><span className="font-medium">Status:</span> 
+                      <span className={`ml-2 badge-${selectedLead.status === 'New' ? 'blue' : 'gold'}`}>
+                        {selectedLead.status}
+                      </span>
+                    </p>
+                    <p><span className="font-medium">Created:</span> {new Date(selectedLead.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {selectedLead.checkIn && (
+                  <div className="bg-luxury-light p-4 rounded-lg">
+                    <h4 className="font-semibold text-gold-500 mb-3">Travel Dates</h4>
+                    <div className="space-y-2">
+                      <p><span className="font-medium">Check-in:</span> {new Date(selectedLead.checkIn).toLocaleDateString()}</p>
+                      <p><span className="font-medium">Check-out:</span> {new Date(selectedLead.checkOut).toLocaleDateString()}</p>
+                      <p><span className="font-medium">Duration:</span> {Math.ceil((new Date(selectedLead.checkOut) - new Date(selectedLead.checkIn)) / (1000 * 60 * 60 * 24))} nights</p>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedLead.adults && (
+                  <div className="bg-luxury-light p-4 rounded-lg">
+                    <h4 className="font-semibold text-gold-500 mb-3">Guest Details</h4>
+                    <div className="space-y-2">
+                      <p><span className="font-medium">Adults:</span> {selectedLead.adults}</p>
+                      <p><span className="font-medium">Children:</span> {selectedLead.children || 0}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedLead.notes && (
+                  <div className="bg-luxury-light p-4 rounded-lg">
+                    <h4 className="font-semibold text-gold-500 mb-3">Notes</h4>
+                    <p>{selectedLead.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setShowProfileModal(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Lead">
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[600px] overflow-y-auto">
+          {/* Contact Information */}
+          <div className="bg-luxury-light p-4 rounded-lg">
+            <h4 className="font-semibold text-gold-500 mb-3">Contact Information</h4>
+            <div className="space-y-3">
+              <Input
+                label="Guest Name"
+                value={formData.guestName || ''}
+                onChange={(e) => setFormData({ ...formData, guestName: e.target.value })}
+                required
+              />
+              <Input
+                label="Email"
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+              <Input
+                label="Phone"
+                value={formData.phone || ''}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Travel Details */}
+          <div className="bg-luxury-light p-4 rounded-lg">
+            <h4 className="font-semibold text-gold-500 mb-3">Travel Details</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Check-in Date</label>
+                <Input
+                  type="date"
+                  value={formData.checkIn || ''}
+                  onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Check-out Date</label>
+                <Input
+                  type="date"
+                  value={formData.checkOut || ''}
+                  onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Guest Details */}
+          <div className="bg-luxury-light p-4 rounded-lg">
+            <h4 className="font-semibold text-gold-500 mb-3">Guest Details</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <Input
+                label="Adults"
+                type="number"
+                min="1"
+                value={formData.adults || 1}
+                onChange={(e) => setFormData({ ...formData, adults: parseInt(e.target.value) || 1 })}
+              />
+              <Input
+                label="Children"
+                type="number"
+                min="0"
+                value={formData.children || 0}
+                onChange={(e) => setFormData({ ...formData, children: parseInt(e.target.value) || 0 })}
+              />
+              <Input
+                label="Rooms"
+                type="number"
+                min="1"
+                value={formData.rooms || 1}
+                onChange={(e) => setFormData({ ...formData, rooms: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+          </div>
+
+          {/* Booking Details */}
+          <div className="bg-luxury-light p-4 rounded-lg">
+            <h4 className="font-semibold text-gold-500 mb-3">Booking Details</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Meal Plan</label>
+                <Input
+                  value={formData.mealPlan || ''}
+                  onChange={(e) => setFormData({ ...formData, mealPlan: e.target.value })}
+                  placeholder="e.g., All-Inclusive, Half Board"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Total Amount</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.totalAmount || 0}
+                  onChange={(e) => setFormData({ ...formData, totalAmount: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Special Requests */}
+          <div className="bg-luxury-light p-4 rounded-lg">
+            <label className="block text-sm font-medium text-gray-300 mb-2">Special Requests</label>
+            <textarea
+              className="input-luxury w-full"
+              rows="2"
+              value={formData.specialRequests || ''}
+              onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
+              placeholder="Any special requests or notes"
+            />
+          </div>
+
+          {/* Lead Status */}
+          <div className="bg-luxury-light p-4 rounded-lg">
+            <h4 className="font-semibold text-gold-500 mb-3">Lead Status</h4>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Source</label>
+                <select
+                  className="input-luxury w-full"
+                  value={formData.source || ''}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                  required
+                >
+                  <option value="">Select Source</option>
+                  <option value="Website">Website</option>
+                  <option value="Booking">Booking</option>
+                  <option value="Phone">Phone</option>
+                  <option value="Email">Email</option>
+                  <option value="Social Media">Social Media</option>
+                  <option value="Referral">Referral</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                <select
+                  className="input-luxury w-full"
+                  value={formData.status || ''}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  required
+                >
+                  <option value="New">New</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 sticky bottom-0 bg-white">
+            <Button type="submit" variant="primary" className="flex-1">
+              Update Lead
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Quotation Modal */}
+      <Modal isOpen={showQuotationModal} onClose={() => setShowQuotationModal(false)} title="Create Quotation">
+        <form onSubmit={handleQuotationSubmit} className="space-y-6">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
+            <h4 className="font-semibold text-gold-600 mb-3">Customer & Booking Details</h4>
+            <p className="text-gray-900"><span className="font-medium">Name:</span> {selectedLead?.guestName}</p>
+            <p className="text-gray-900"><span className="font-medium">Email:</span> {selectedLead?.email}</p>
+            <p className="text-gray-900"><span className="font-medium">Phone:</span> {selectedLead?.phone}</p>
+            {selectedLead?.resort && (
+              <p className="text-gray-900"><span className="font-medium">Resort:</span> {selectedLead.resort.name || 'N/A'}</p>
+            )}
+            {selectedLead?.room && (
+              <p className="text-gray-900"><span className="font-medium">Room:</span> {selectedLead.room.roomType || 'N/A'}</p>
+            )}
+            <p className="text-gray-900"><span className="font-medium">Check-in:</span> {selectedLead?.checkIn ? new Date(selectedLead.checkIn).toLocaleDateString() : 'N/A'}</p>
+            <p className="text-gray-900"><span className="font-medium">Check-out:</span> {selectedLead?.checkOut ? new Date(selectedLead.checkOut).toLocaleDateString() : 'N/A'}</p>
+          </div>
+
+          {/* Valid Until */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Valid Until</label>
+            <Input
+              type="date"
+              value={formData.validUntil || ''}
+              onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+            />
+          </div>
+
+          {/* Price Details */}
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
+            <h4 className="font-semibold text-gold-600 mb-3">Quotation Details</h4>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.amount || 0}
+                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter base price"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.discountValue || 0}
+                onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter discount amount"
+              />
+            </div>
+
+            {/* Summary */}
+            <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Base Price:</span>
+                <span className="text-gold-500 font-bold">${(formData.amount || 0).toFixed(2)}</span>
+              </div>
+              {formData.discountValue > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span className="font-medium">Discount:</span>
+                  <span>-${(formData.discountValue || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                <span>Final Price:</span>
+                <span className="text-gold-500">${((formData.amount || 0) - (formData.discountValue || 0)).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes & Terms */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+              <textarea
+                className="input-luxury w-full"
+                rows="2"
+                value={formData.notes || ''}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Additional notes..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Terms & Conditions</label>
+              <textarea
+                className="input-luxury w-full"
+                rows="2"
+                value={formData.terms || ''}
+                onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
+                placeholder="Terms and conditions..."
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="sendQuotationEmail"
+              checked={formData.sendEmail || false}
+              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+              className="mr-2"
+            />
+            <label htmlFor="sendQuotationEmail" className="text-sm">Send quotation email to customer</label>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button type="submit" variant="primary" className="flex-1">
+              Create Quotation
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowQuotationModal(false)} className="flex-1">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Invoice Modal */}
+      <Modal isOpen={showInvoiceModal} onClose={() => setShowInvoiceModal(false)} title="Create Invoice">
+        <form onSubmit={handleInvoiceSubmit} className="space-y-6">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
+            <h4 className="font-semibold text-gold-600 mb-3">Customer & Booking Details</h4>
+            <p className="text-gray-900"><span className="font-medium">Name:</span> {selectedLead?.guestName}</p>
+            <p className="text-gray-900"><span className="font-medium">Email:</span> {selectedLead?.email}</p>
+            <p className="text-gray-900"><span className="font-medium">Phone:</span> {selectedLead?.phone}</p>
+            {selectedLead?.resort && (
+              <p className="text-gray-900"><span className="font-medium">Resort:</span> {selectedLead.resort.name || 'N/A'}</p>
+            )}
+            {selectedLead?.room && (
+              <p className="text-gray-900"><span className="font-medium">Room:</span> {selectedLead.room.roomType || 'N/A'}</p>
+            )}
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Due Date</label>
+            <Input
+              type="date"
+              value={formData.dueDate || ''}
+              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+            />
+          </div>
+
+          {/* Price Details */}
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
+            <h4 className="font-semibold text-gold-600 mb-3">Invoice Details</h4>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.amount || 0}
+                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter base price"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.discountValue || 0}
+                onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter discount amount"
+              />
+            </div>
+
+            {/* Summary */}
+            <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Base Price:</span>
+                <span className="text-gold-500 font-bold">${(formData.amount || 0).toFixed(2)}</span>
+              </div>
+              {formData.discountValue > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span className="font-medium">Discount:</span>
+                  <span>-${(formData.discountValue || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                <span>Final Price:</span>
+                <span className="text-gold-500">${((formData.amount || 0) - (formData.discountValue || 0)).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+            <textarea
+              className="input-luxury w-full"
+              rows="2"
+              value={formData.notes || ''}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="sendInvoiceEmail"
+              checked={formData.sendEmail || false}
+              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+              className="mr-2"
+            />
+            <label htmlFor="sendInvoiceEmail" className="text-sm">Send invoice email to customer</label>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button type="submit" variant="primary" className="flex-1">
+              Create Invoice
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowInvoiceModal(false)} className="flex-1">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Receipt Modal */}
+      <Modal isOpen={showReceiptModal} onClose={() => setShowReceiptModal(false)} title="Create Receipt">
+        <div className="space-y-6">
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
+            <h4 className="font-semibold text-gold-600 mb-3">Customer & Booking Details</h4>
+            <p className="text-gray-900"><span className="font-medium">Name:</span> {selectedLead?.guestName}</p>
+            <p className="text-gray-900"><span className="font-medium">Email:</span> {selectedLead?.email}</p>
+            <p className="text-gray-900"><span className="font-medium">Phone:</span> {selectedLead?.phone}</p>
+            {selectedLead?.resort && (
+              <p className="text-gray-900"><span className="font-medium">Resort:</span> {selectedLead.resort.name || 'N/A'}</p>
+            )}
+            {selectedLead?.room && (
+              <p className="text-gray-900"><span className="font-medium">Room:</span> {selectedLead.room.roomType || 'N/A'}</p>
+            )}
+          </div>
+
+          {/* Payment Method */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Payment Method</label>
+            <select
+              className="input-luxury w-full"
+              value={formData.paymentMethod || 'Cash'}
+              onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+            >
+              <option value="Cash">Cash</option>
+              <option value="Credit Card">Credit Card</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Check">Check</option>
+              <option value="Online Payment">Online Payment</option>
+            </select>
+          </div>
+
+          {/* Price Details */}
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
+            <h4 className="font-semibold text-gold-600 mb-3">Receipt Details</h4>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.amount || 0}
+                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter base price"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.discountValue || 0}
+                onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) || 0 })}
+                placeholder="Enter discount amount"
+              />
+            </div>
+
+            {/* Summary */}
+            <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">Base Price:</span>
+                <span className="text-gold-500 font-bold">${(formData.amount || 0).toFixed(2)}</span>
+              </div>
+              {formData.discountValue > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span className="font-medium">Discount:</span>
+                  <span>-${(formData.discountValue || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                <span>Final Price:</span>
+                <span className="text-gold-500">${((formData.amount || 0) - (formData.discountValue || 0)).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+            <textarea
+              className="input-luxury w-full"
+              rows="2"
+              value={formData.notes || ''}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="sendReceiptEmail"
+              checked={formData.sendEmail || false}
+              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+              className="mr-2"
+            />
+            <label htmlFor="sendReceiptEmail" className="text-sm">Send receipt email to customer</label>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button type="submit" variant="primary" className="flex-1" onClick={handleReceiptSubmit}>
+              Create Receipt
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowReceiptModal(false)} className="flex-1">
+              Cancel
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -45,19 +45,19 @@ const Signup = () => {
   if (loading) return <Loader />;
 
   return (
-    <div className="min-h-screen bg-luxury-dark flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
             Crown Voyages
           </h1>
-          <p className="text-gray-400 mt-2">Management System</p>
+          <p className="text-gray-600 mt-2 text-sm sm:text-base">Management System</p>
         </div>
 
         {/* Signup Card */}
-        <div className="card-luxury">
-          <h2 className="text-2xl font-luxury font-semibold text-gold-500 mb-6">
+        <div className="bg-white border-2 border-gray-200 rounded-xl p-6 shadow-xl">
+          <h2 className="text-xl sm:text-2xl font-luxury font-semibold text-gray-800 mb-6">
             Create Account
           </h2>
           

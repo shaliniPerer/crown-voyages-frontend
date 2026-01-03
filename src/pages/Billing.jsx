@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiFileText, FiMail, FiDollarSign } from 'react-icons/fi';
+import { FiPlus, FiFileText, FiMail, FiDollarSign, FiDownload } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { billingApi} from '../api/billingApi';
+import { bookingApi } from '../api/bookingApi';
 import { toast } from 'react-toastify';
 
 const Billing = () => {
-  const [activeTab, setActiveTab] = useState('invoices');
+  const [activeTab, setActiveTab] = useState('quotations');
+  const [quotations, setQuotations] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [receipts, setReceipts] = useState([]);
   const [payments, setPayments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -21,15 +24,23 @@ const Billing = () => {
 
   const fetchData = async () => {
     try {
-      if (activeTab === 'invoices') {
+      if (activeTab === 'quotations') {
+        const res = await bookingApi.getQuotations();
+        setQuotations(res.data.data || res.data || []);
+      } else if (activeTab === 'invoices') {
         const res = await billingApi.getInvoices();
-        setInvoices(res.data);
+        setInvoices(res.data.data || res.data || []);
+      } else if (activeTab === 'receipts') {
+        // Fetch receipts from bookingApi
+        const res = await bookingApi.getReceipts?.() || { data: [] };
+        setReceipts(res.data.data || res.data || []);
       } else if (activeTab === 'payments') {
         const res = await billingApi.getPayments();
-        setPayments(res.data);
+        setPayments(res.data.data || res.data || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error('Failed to fetch data');
     }
   };
 
@@ -60,34 +71,54 @@ const Billing = () => {
     }
   };
 
-  const handleSendEmail = async (id) => {
+  const handleSendEmail = async (id, type = 'invoice') => {
     try {
-      await billingApi.sendInvoiceEmail(id);
-      toast.success('Invoice sent via email');
+      if (type === 'quotation') {
+        await bookingApi.sendQuotationEmail(id);
+      } else if (type === 'invoice') {
+        await bookingApi.sendInvoiceEmail(id);
+      } else if (type === 'receipt') {
+        await bookingApi.sendPaymentReceiptEmail(id);
+      }
+      toast.success('Email sent successfully');
     } catch (error) {
-      toast.error('Failed to send email');
+      console.error('Email error:', error);
+      toast.error(error.response?.data?.message || 'Failed to send email');
     }
   };
 
-  const handleExportPDF = async (id) => {
+  const handleExportPDF = async (id, type) => {
     try {
-      const response = await billingApi.exportInvoicePDF(id);
+      let response;
+      let filename;
+      
+      if (type === 'quotation') {
+        response = await bookingApi.exportQuotationPDF(id);
+        filename = `quotation-${id}.pdf`;
+      } else if (type === 'invoice') {
+        response = await bookingApi.exportInvoicePDF(id);
+        filename = `invoice-${id}.pdf`;
+      } else if (type === 'receipt') {
+        response = await bookingApi.exportReceiptPDF(id);
+        filename = `receipt-${id}.pdf`;
+      }
+
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `invoice-${id}.pdf`;
+      link.download = filename;
       link.click();
-      toast.success('Invoice downloaded');
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} downloaded`);
     } catch (error) {
-      toast.error('Failed to download invoice');
+      toast.error(`Failed to download ${type}`);
     }
   };
 
   const tabs = [
+    { id: 'quotations', label: 'Quotations' },
     { id: 'invoices', label: 'Invoices' },
-    { id: 'payments', label: 'Payments' },
-    { id: 'reminders', label: 'Reminders' },
+    { id: 'receipts', label: 'Receipts' },
   ];
 
   return (
@@ -95,8 +126,8 @@ const Billing = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-luxury font-bold text-gold-500">Billing & Invoices</h1>
-          <p className="text-gray-400 mt-1">Manage invoices, payments, and reminders</p>
+          <h1 className="text-3xl font-luxury font-bold text-gold-500">Billing & Documents</h1>
+          <p className="text-gray-400 mt-1">Manage quotations, invoices, receipts, and payments</p>
         </div>
         <div className="flex gap-3">
           {activeTab === 'invoices' && (
@@ -129,6 +160,63 @@ const Billing = () => {
         ))}
       </div>
 
+      {/* Quotations Tab */}
+      {activeTab === 'quotations' && (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="table-luxury">
+              <thead>
+                <tr>
+                  <th>Quotation ID</th>
+                  <th>Customer</th>
+                  <th>Base Price</th>
+                  <th>Discount</th>
+                  <th>Final Price</th>
+                  <th>Valid Until</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quotations.length > 0 ? (
+                  quotations.map((quote) => (
+                    <tr key={quote._id}>
+                      <td className="font-mono text-gold-500">{quote.quotationNumber}</td>
+                      <td className="font-medium text-gray-100">{quote.customerName}</td>
+                      <td className="font-semibold">${(quote.amount || 0).toLocaleString()}</td>
+                      <td className="text-green-600">-${(quote.discountValue || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-gold-500">${(quote.finalAmount || 0).toLocaleString()}</td>
+                      <td>{quote.validUntil ? new Date(quote.validUntil).toLocaleDateString() : 'N/A'}</td>
+                      <td>
+                        <span className={`badge-${quote.status === 'Accepted' ? 'green' : quote.status === 'Rejected' ? 'red' : 'gold'}`}>
+                          {quote.status || 'Draft'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="small" icon={FiFileText} onClick={() => handleExportPDF(quote._id, 'quotation')}>
+                            PDF
+                          </Button>
+                          <Button variant="outline" size="small" icon={FiMail} onClick={() => handleSendEmail(quote._id, 'quotation')}>
+                            Send
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="8" className="text-center text-gray-400 py-8">
+                      No quotations found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       {/* Invoices Tab */}
       {activeTab === 'invoices' && (
         <Card>
@@ -138,10 +226,10 @@ const Billing = () => {
                 <tr>
                   <th>Invoice ID</th>
                   <th>Customer</th>
-                  <th>Booking</th>
-                  <th>Amount</th>
-                  <th>Paid</th>
-                  <th>Balance</th>
+                  <th>Base Price</th>
+                  <th>Discount</th>
+                  <th>Final Price</th>
+                  <th>Due Date</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -152,16 +240,16 @@ const Billing = () => {
                     <tr key={invoice._id}>
                       <td className="font-mono text-gold-500">{invoice.invoiceNumber}</td>
                       <td className="font-medium text-gray-100">{invoice.customerName}</td>
-                      <td>{invoice.booking?.bookingNumber}</td>
-                      <td className="font-semibold">${invoice.totalAmount?.toLocaleString()}</td>
-                      <td className="text-green-400">${invoice.paidAmount?.toLocaleString()}</td>
-                      <td className="text-red-400">${invoice.balance?.toLocaleString()}</td>
+                      <td className="font-semibold">${(invoice.amount || 0).toLocaleString()}</td>
+                      <td className="text-green-600">-${(invoice.discountValue || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-gold-500">${(invoice.finalAmount || 0).toLocaleString()}</td>
+                      <td>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</td>
                       <td>
                         <span className={`badge-${
                           invoice.status === 'Paid' ? 'green' : 
                           invoice.status === 'Overdue' ? 'red' : 'gold'
                         }`}>
-                          {invoice.status}
+                          {invoice.status || 'Draft'}
                         </span>
                       </td>
                       <td>
@@ -170,7 +258,7 @@ const Billing = () => {
                             variant="outline"
                             size="small"
                             icon={FiFileText}
-                            onClick={() => handleExportPDF(invoice._id)}
+                            onClick={() => handleExportPDF(invoice._id, 'invoice')}
                           >
                             PDF
                           </Button>
@@ -178,7 +266,7 @@ const Billing = () => {
                             variant="outline"
                             size="small"
                             icon={FiMail}
-                            onClick={() => handleSendEmail(invoice._id)}
+                            onClick={() => handleSendEmail(invoice._id, 'invoice')}
                           >
                             Send
                           </Button>
@@ -190,6 +278,73 @@ const Billing = () => {
                   <tr>
                     <td colSpan="8" className="text-center text-gray-400 py-8">
                       No invoices found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Receipts Tab */}
+      {activeTab === 'receipts' && (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="table-luxury">
+              <thead>
+                <tr>
+                  <th>Receipt ID</th>
+                  <th>Customer</th>
+                  <th>Base Price</th>
+                  <th>Discount</th>
+                  <th>Final Price</th>
+                  <th>Payment Method</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {receipts.length > 0 ? (
+                  receipts.map((receipt) => (
+                    <tr key={receipt._id}>
+                      <td className="font-mono text-gold-500">{receipt.receiptNumber}</td>
+                      <td className="font-medium text-gray-100">{receipt.customerName}</td>
+                      <td className="font-semibold">${(receipt.amount || 0).toLocaleString()}</td>
+                      <td className="text-green-600">-${(receipt.discountValue || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-gold-500">${(receipt.finalAmount || 0).toLocaleString()}</td>
+                      <td>{receipt.paymentMethod || 'Cash'}</td>
+                      <td>
+                        <span className="badge-green">
+                          {receipt.status || 'Received'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="small"
+                            icon={FiFileText}
+                            onClick={() => handleExportPDF(receipt._id, 'receipt')}
+                          >
+                            PDF
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="small"
+                            icon={FiMail}
+                            onClick={() => handleSendEmail(receipt._id, 'receipt')}
+                          >
+                            Send
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="8" className="text-center text-gray-400 py-8">
+                      No receipts found
                     </td>
                   </tr>
                 )}

@@ -22,7 +22,7 @@ const Analytics = () => {
       setLoading(true);
       const response = await analyticsApi.getBookingReports({ period });
       setBookingData(response.data.bookingTrends || []);
-      setRevenueData(response.data.revenueTrends || []);
+      setRevenueData(response.data.bookingTrends || []); // Same data, different visualization
     } catch (error) {
       console.error('Error fetching analytics:', error);
       toast.error('Failed to load analytics data');
@@ -50,10 +50,15 @@ const Analytics = () => {
     }
   };
 
+  // Calculate summary stats from actual data
+  const totalBookings = bookingData.reduce((sum, item) => sum + (item.bookings || 0), 0);
+  const totalRevenue = bookingData.reduce((sum, item) => sum + (item.revenue || 0), 0);
+  const avgBookingValue = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+
   const summaryStats = [
-    { label: 'Total Bookings', value: '1,234', change: '+12%' },
-    { label: 'Total Revenue', value: '$456,789', change: '+18%' },
-    { label: 'Avg. Booking Value', value: '$370', change: '+5%' },
+    { label: 'Total Bookings', value: totalBookings.toLocaleString(), change: '+12%' },
+    { label: 'Total Revenue', value: `$${totalRevenue.toLocaleString()}`, change: '+18%' },
+    { label: 'Avg. Booking Value', value: `$${Math.round(avgBookingValue).toLocaleString()}`, change: '+5%' },
     { label: 'Conversion Rate', value: '68%', change: '+3%' },
   ];
 

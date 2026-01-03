@@ -20,7 +20,7 @@ const Sidebar = () => {
   }
 
   return (
-    <div className="w-64 bg-luxury-darker border-r border-gold-800/30 h-screen sticky top-0 flex flex-col">
+    <div className="w-64 bg-luxury-dark border-r border-gold-800/30 h-screen sticky top-0 flex-col hidden lg:flex">
       {/* Logo */}
       <div className="px-6 py-8 border-b border-gold-800/30">
         <h1 className="text-2xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
