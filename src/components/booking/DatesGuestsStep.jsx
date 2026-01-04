@@ -15,7 +15,18 @@ const DatesGuestsStep = ({
   roomConfigs,
   handleRoomConfigChange,
   handleNext,
+  handleBookAnotherRoom,
+  savedBookings = [],
 }) => {
+  const [numberOfRooms, setNumberOfRooms] = React.useState(roomConfigs.length || 1);
+
+  const handleNumberOfRoomsChange = (value) => {
+    const numRooms = parseInt(value);
+    setNumberOfRooms(numRooms);
+    // This will be handled by parent component through handleChange
+    handleChange({ target: { name: 'rooms', value: numRooms } });
+  };
+
   const getTransportIcon = (method) => {
     const lowerMethod = method.toLowerCase();
     if (lowerMethod.includes("boat") || lowerMethod.includes("ship")) return <FaShip className="text-yellow-600" />;
@@ -112,32 +123,75 @@ const DatesGuestsStep = ({
               </div>
             </div>
 
+            {/* Number of Rooms */}
+            <div className="mb-10 space-y-3">
+              <label className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Number of Rooms</label>
+              <select
+                value={numberOfRooms}
+                onChange={(e) => handleNumberOfRoomsChange(e.target.value)}
+                className="w-full px-6 py-4 border border-gray-300 rounded-2xl focus:border-yellow-500 outline-none text-base appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2020%2020%22%20fill%3D%22none%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cpath%20d%3D%22M5%207.5L10%2012.5L15%207.5%22%20stroke%3D%22%236B7280%22%20stroke-width%3D%221.67%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3C/svg%3E')] bg-[length:20px_20px] bg-[right_1.5rem_center] bg-no-repeat"
+              >
+                {[1, 2, 3, 4, 5].map(num => (
+                  <option key={num} value={num}>{num} {num === 1 ? 'Room' : 'Rooms'}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Room Config */}
             <div className="mb-10">
               <h3 className="text-lg font-bold text-gray-800 mb-6">Room Configuration</h3>
               {roomConfigs.map((config, roomIdx) => (
-                <div key={roomIdx} className="space-y-5">
-                  <p className="text-base font-medium text-gray-700">Room {roomIdx + 1}</p>
+                <div key={roomIdx} className="space-y-5 mb-8 p-6 bg-gray-50 rounded-2xl border border-gray-200">
+                  <p className="text-lg font-bold text-gray-800 border-b border-gray-300 pb-2">Room {roomIdx + 1}</p>
                   <div className="grid grid-cols-2 gap-8">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-gray-500">Adults</label>
                       <input
                         type="number"
+                        min="1"
+                        max={room?.maxAdults || 10}
                         value={config.adults}
                         onChange={(e) => handleRoomConfigChange(roomIdx, "adults", e.target.value)}
                         className="w-full px-6 py-4 border border-gray-300 rounded-2xl focus:border-yellow-500 outline-none text-base"
                       />
+                      <p className="text-xs text-gray-500">Max: {room?.maxAdults || 'N/A'} adults per room</p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-gray-500">Children</label>
                       <input
                         type="number"
+                        min="0"
+                        max={room?.maxChildren || 5}
                         value={config.children}
                         onChange={(e) => handleRoomConfigChange(roomIdx, "children", e.target.value)}
                         className="w-full px-6 py-4 border border-gray-300 rounded-2xl focus:border-yellow-500 outline-none text-base"
                       />
+                      <p className="text-xs text-gray-500">Max: {room?.maxChildren || 'N/A'} children per room</p>
                     </div>
                   </div>
+
+                  {/* Children Ages */}
+                  {config.children > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <label className="text-sm font-semibold text-gray-500">Children Ages</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {Array.from({ length: config.children }).map((_, childIdx) => (
+                          <div key={childIdx} className="space-y-1">
+                            <label className="text-xs text-gray-600">Child {childIdx + 1} Age</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="17"
+                              value={config.childrenAges?.[childIdx] || 0}
+                              onChange={(e) => handleChildAgeChange(roomIdx, childIdx, e.target.value)}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-yellow-500 outline-none text-sm"
+                              placeholder="Age"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -153,7 +207,9 @@ const DatesGuestsStep = ({
               >
                 <option value="">Select Meal Plan</option>
                 <option value="All Inclusive">All Inclusive</option>
+                <option value="Full Board">Full Board</option>
                 <option value="Half Board">Half Board</option>
+                <option value="Bed & Breakfast">Bed & Breakfast</option>
               </select>
             </div>
 
@@ -174,6 +230,217 @@ const DatesGuestsStep = ({
               </div>
             )}
 
+            {/* Previously Saved Bookings */}
+            {savedBookings && savedBookings.length > 0 && (
+              <div className="mb-10">
+                <h3 className="text-lg font-bold text-gray-800 mb-6">Previously Selected Rooms</h3>
+                <div className="space-y-4">
+                  {savedBookings.map((booking, index) => (
+                    <div key={index} className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-2xl p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <h4 className="text-lg font-bold text-gray-900">Booking Summary {index + 1}</h4>
+                        <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                          Saved
+                        </span>
+                      </div>
+                      <div className="space-y-2 text-sm text-gray-700">
+                        {/* Room Details */}
+                        <div className="flex justify-between items-center py-2 border-b border-green-200">
+                          <span className="font-semibold">Room:</span>
+                          <span className="font-medium">{booking.roomName}</span>
+                        </div>
+                        
+                        {/* Resort Details */}
+                        <div className="flex justify-between items-center py-2 border-b border-green-200">
+                          <span className="font-semibold">Resort:</span>
+                          <span className="font-medium">{booking.resortName}</span>
+                        </div>
+                        
+                        {/* Dates */}
+                        {booking.checkIn && booking.checkOut && (
+                          <div className="flex justify-between items-center py-2 border-b border-green-200">
+                            <span className="font-semibold">Stay Duration:</span>
+                            <span className="font-medium">
+                              {new Date(booking.checkIn).toLocaleDateString('en-US', { 
+                                month: 'short', day: 'numeric', year: 'numeric' 
+                              })} - {new Date(booking.checkOut).toLocaleDateString('en-US', { 
+                                month: 'short', day: 'numeric', year: 'numeric' 
+                              })}
+                              <span className="ml-2 text-green-700">
+                                ({Math.ceil((new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24))} night{Math.ceil((new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''})
+                              </span>
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Total Rooms */}
+                        {booking.totalRooms > 0 && (
+                          <div className="flex justify-between items-center py-2 border-b border-green-200">
+                            <span className="font-semibold">Total Rooms:</span>
+                            <span className="font-medium text-green-700">{booking.totalRooms} {booking.totalRooms === 1 ? 'Room' : 'Rooms'}</span>
+                          </div>
+                        )}
+                        
+                        {/* Room Configurations */}
+                        {booking.roomConfigs && booking.roomConfigs.map((config, idx) => (
+                          (config.adults > 0 || config.children > 0) && (
+                            <div key={idx} className="py-2 border-b border-green-200">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="font-semibold">Room {idx + 1}:</span>
+                                <span className="font-medium">
+                                  {config.adults} Adult{config.adults !== 1 ? 's' : ''}
+                                  {config.children > 0 && `, ${config.children} Child${config.children !== 1 ? 'ren' : ''}`}
+                                </span>
+                              </div>
+                              {config.children > 0 && config.childrenAges && config.childrenAges.length > 0 && (
+                                <div className="text-xs text-gray-600 mt-1 ml-4">
+                                  Children ages: {config.childrenAges.filter(age => age > 0).join(', ') || 'Not specified'}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        ))}
+                        
+                        {/* Total Guests */}
+                        {(booking.totalAdults > 0 || booking.totalChildren > 0) && (
+                          <div className="flex justify-between items-center py-2 border-b border-green-200">
+                            <span className="font-semibold">Total Guests:</span>
+                            <span className="font-medium">
+                              {booking.totalAdults} Adult{booking.totalAdults !== 1 ? 's' : ''}
+                              {booking.totalChildren > 0 && `, ${booking.totalChildren} Child${booking.totalChildren !== 1 ? 'ren' : ''}`}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* Meal Plan */}
+                        {booking.mealPlan && (
+                          <div className="flex justify-between items-center py-2">
+                            <span className="font-semibold">Meal Plan:</span>
+                            <span className="font-medium text-green-700">{booking.mealPlan}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Current Booking Summary */}
+            {(bookingData.checkIn || bookingData.checkOut || bookingData.mealPlan || roomConfigs.some(r => r.adults > 0 || r.children > 0)) && (
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-300 rounded-2xl p-6 mb-10">
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">
+                    {savedBookings && savedBookings.length > 0 ? `Booking Summary ${savedBookings.length + 1}` : 'Booking Summary'}
+                  </h3>
+                  <span className="px-3 py-1 bg-yellow-500 text-white text-xs font-semibold rounded-full">
+                    Current
+                  </span>
+                </div>
+                <div className="space-y-3 text-sm text-gray-700">
+                  {/* Dates */}
+                  {bookingData.checkIn && bookingData.checkOut && (
+                    <div className="flex justify-between items-center py-2 border-b border-yellow-200">
+                      <span className="font-semibold">Stay Duration:</span>
+                      <span className="font-medium">
+                        {new Date(bookingData.checkIn).toLocaleDateString('en-US', { 
+                          month: 'short', day: 'numeric', year: 'numeric' 
+                        })} - {new Date(bookingData.checkOut).toLocaleDateString('en-US', { 
+                          month: 'short', day: 'numeric', year: 'numeric' 
+                        })}
+                        <span className="ml-2 text-yellow-700">
+                          ({Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24))} night{Math.ceil((new Date(bookingData.checkOut) - new Date(bookingData.checkIn)) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''})
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Number of Rooms */}
+                  {roomConfigs.length > 0 && (
+                    <div className="flex justify-between items-center py-2 border-b border-yellow-200">
+                      <span className="font-semibold">Total Rooms:</span>
+                      <span className="font-medium text-yellow-700">{roomConfigs.length} {roomConfigs.length === 1 ? 'Room' : 'Rooms'}</span>
+                    </div>
+                  )}
+                  
+                  {/* Room Configurations */}
+                  {roomConfigs.map((config, idx) => (
+                    (config.adults > 0 || config.children > 0) && (
+                      <div key={idx} className="py-2 border-b border-yellow-200">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-semibold">Room {idx + 1}:</span>
+                          <span className="font-medium">
+                            {config.adults} Adult{config.adults !== 1 ? 's' : ''}
+                            {config.children > 0 && `, ${config.children} Child${config.children !== 1 ? 'ren' : ''}`}
+                          </span>
+                        </div>
+                        {config.children > 0 && config.childrenAges && config.childrenAges.length > 0 && (
+                          <div className="text-xs text-gray-600 mt-1 ml-4">
+                            Children ages: {config.childrenAges.filter(age => age > 0).join(', ') || 'Not specified'}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ))}
+                  
+                  {/* Total Guests */}
+                  {roomConfigs.some(r => r.adults > 0 || r.children > 0) && (
+                    <div className="flex justify-between items-center py-2 border-b border-yellow-200">
+                      <span className="font-semibold">Total Guests:</span>
+                      <span className="font-medium">
+                        {roomConfigs.reduce((sum, config) => sum + config.adults, 0)} Adult{roomConfigs.reduce((sum, config) => sum + config.adults, 0) !== 1 ? 's' : ''}
+                        {roomConfigs.reduce((sum, config) => sum + config.children, 0) > 0 && 
+                          `, ${roomConfigs.reduce((sum, config) => sum + config.children, 0)} Child${roomConfigs.reduce((sum, config) => sum + config.children, 0) !== 1 ? 'ren' : ''}`
+                        }
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Meal Plan */}
+                  {bookingData.mealPlan && (
+                    <div className="flex justify-between items-center py-2">
+                      <span className="font-semibold">Meal Plan:</span>
+                      <span className="font-medium text-yellow-700">{bookingData.mealPlan}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col gap-4 mt-8">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={() => window.history.back()}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                >
+                  ← Previous
+                </button>
+                {handleBookAnotherRoom && (
+                  <button
+                    onClick={handleBookAnotherRoom}
+                    className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 font-medium"
+                  >
+                    + Book Another Room
+                  </button>
+                )}
+                <button
+                  onClick={handleNext}
+                  className="flex-1 px-8 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all duration-200 font-semibold shadow-lg"
+                >
+                  Next →
+                </button>
+              </div>
+
+              {/* Show saved bookings count */}
+              {savedBookings && savedBookings.length > 0 && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                  <p className="text-sm text-green-700 font-medium">
+                    ✓ {savedBookings.length} room{savedBookings.length > 1 ? 's' : ''} added to booking
+                  </p>
+                </div>
+              )}
+            </div>
            
           </div>
         </div>

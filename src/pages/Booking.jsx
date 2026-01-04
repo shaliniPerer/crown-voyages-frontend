@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile } from 'react-icons/fi';
+import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiPhone, FiMapPin } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -744,68 +744,204 @@ const Booking = () => {
       </Modal>
 
       {/* Profile Modal */}
-      <Modal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} title="Lead Profile">
+      <Modal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} title="Booking Profile">
         {selectedLead && (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-r from-gold-600 to-gold-500 p-6 rounded-lg text-white">
-              <h3 className="text-2xl font-bold">{selectedLead.guestName}</h3>
-              <p className="text-gold-100">Lead Details</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="bg-luxury-light p-4 rounded-lg">
-                  <h4 className="font-semibold text-gold-500 mb-3">Contact Information</h4>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Email:</span> {selectedLead.email}</p>
-                    <p><span className="font-medium">Phone:</span> {selectedLead.phone}</p>
+          <div className="space-y-6 max-h-[80vh] overflow-y-auto">
+            {/* Main Booking Info */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{selectedLead.bookingNumber ? `Booking #${selectedLead.bookingNumber}` : selectedLead.guestName}</h3>
+                  <p className="text-sm text-gray-600 mt-1">Status: <span className={`font-semibold ${
+                    selectedLead.status === 'Confirmed' ? 'text-green-600' :
+                    selectedLead.status === 'Pending' ? 'text-yellow-600' :
+                    selectedLead.status === 'Cancelled' ? 'text-red-600' : 'text-gray-600'
+                  }`}>{selectedLead.status}</span></p>
+                </div>
+                <span className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-full">
+                  {selectedLead.rooms || 1} Room{(selectedLead.rooms || 1) > 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Property Details */}
+                <div className="space-y-3">
+                  <h5 className="font-semibold text-gray-800 border-b border-blue-300 pb-2">Property Details</h5>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium text-gray-600">Resort:</span> <span className="text-gray-900">{selectedLead.resort?.name || 'N/A'}</span></p>
+                    <p><span className="font-medium text-gray-600">Room Type:</span> <span className="text-gray-900">{selectedLead.room?.roomType || selectedLead.room?.roomName || 'N/A'}</span></p>
+                    <p><span className="font-medium text-gray-600">Number of Rooms:</span> <span className="text-gray-900">{selectedLead.rooms || 1}</span></p>
                   </div>
                 </div>
-                
-                <div className="bg-luxury-light p-4 rounded-lg">
-                  <h4 className="font-semibold text-gold-500 mb-3">Lead Information</h4>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Source:</span> {selectedLead.source}</p>
-                    <p><span className="font-medium">Status:</span> 
-                      <span className={`ml-2 badge-${selectedLead.status === 'New' ? 'blue' : 'gold'}`}>
-                        {selectedLead.status}
-                      </span>
-                    </p>
-                    <p><span className="font-medium">Created:</span> {new Date(selectedLead.createdAt).toLocaleDateString()}</p>
+
+                {/* Stay Details */}
+                <div className="space-y-3">
+                  <h5 className="font-semibold text-gray-800 border-b border-blue-300 pb-2">Stay Details</h5>
+                  <div className="space-y-2 text-sm">
+                    {selectedLead.checkIn && (
+                      <>
+                        <p><span className="font-medium text-gray-600">Check-in:</span> <span className="text-gray-900">{new Date(selectedLead.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></p>
+                        <p><span className="font-medium text-gray-600">Check-out:</span> <span className="text-gray-900">{new Date(selectedLead.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></p>
+                        <p><span className="font-medium text-gray-600">Duration:</span> <span className="text-gray-900">{Math.ceil((new Date(selectedLead.checkOut) - new Date(selectedLead.checkIn)) / (1000 * 60 * 60 * 24))} night{Math.ceil((new Date(selectedLead.checkOut) - new Date(selectedLead.checkIn)) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''}</span></p>
+                      </>
+                    )}
+                    <p><span className="font-medium text-gray-600">Meal Plan:</span> <span className="text-gray-900">{selectedLead.mealPlan || 'Not selected'}</span></p>
                   </div>
                 </div>
               </div>
-              
-              <div className="space-y-4">
-                {selectedLead.checkIn && (
-                  <div className="bg-luxury-light p-4 rounded-lg">
-                    <h4 className="font-semibold text-gold-500 mb-3">Travel Dates</h4>
-                    <div className="space-y-2">
-                      <p><span className="font-medium">Check-in:</span> {new Date(selectedLead.checkIn).toLocaleDateString()}</p>
-                      <p><span className="font-medium">Check-out:</span> {new Date(selectedLead.checkOut).toLocaleDateString()}</p>
-                      <p><span className="font-medium">Duration:</span> {Math.ceil((new Date(selectedLead.checkOut) - new Date(selectedLead.checkIn)) / (1000 * 60 * 60 * 24))} nights</p>
-                    </div>
-                  </div>
-                )}
-                
-                {selectedLead.adults && (
-                  <div className="bg-luxury-light p-4 rounded-lg">
-                    <h4 className="font-semibold text-gold-500 mb-3">Guest Details</h4>
-                    <div className="space-y-2">
-                      <p><span className="font-medium">Adults:</span> {selectedLead.adults}</p>
-                      <p><span className="font-medium">Children:</span> {selectedLead.children || 0}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {selectedLead.notes && (
-                  <div className="bg-luxury-light p-4 rounded-lg">
-                    <h4 className="font-semibold text-gold-500 mb-3">Notes</h4>
-                    <p>{selectedLead.notes}</p>
-                  </div>
-                )}
+
+              {/* Guest Information */}
+              <div className="mt-4 pt-4 border-t border-blue-300">
+                <h5 className="font-semibold text-gray-800 mb-3">Guests</h5>
+                <div className="bg-white rounded-lg p-4 border border-blue-200">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold">{selectedLead.adults || 0}</span> Adult{(selectedLead.adults || 0) !== 1 ? 's' : ''}
+                    {selectedLead.children > 0 && <>, <span className="font-semibold">{selectedLead.children}</span> Child{selectedLead.children !== 1 ? 'ren' : ''}</>}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Primary Guest Information */}
+            <div className="bg-white border-2 border-gray-200 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Primary Guest Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <FiUser className="text-blue-500" />
+                  <div>
+                    <p className="text-xs text-gray-500">Name</p>
+                    <p className="text-sm font-medium text-gray-900">{selectedLead.guestName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <FiMail className="text-blue-500" />
+                  <div>
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="text-sm font-medium text-gray-900">{selectedLead.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <FiPhone className="text-blue-500" />
+                  <div>
+                    <p className="text-xs text-gray-500">Phone</p>
+                    <p className="text-sm font-medium text-gray-900">{selectedLead.phone}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <FiMapPin className="text-blue-500" />
+                  <div>
+                    <p className="text-xs text-gray-500">Source</p>
+                    <p className="text-sm font-medium text-gray-900">{selectedLead.source}</p>
+                  </div>
+                </div>
+              </div>
+              {selectedLead.specialRequests && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-1">Special Requests</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedLead.specialRequests}</p>
+                </div>
+              )}
+              {selectedLead.notes && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-1">Notes</p>
+                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedLead.notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Passenger Details */}
+            {selectedLead.passengerDetails && selectedLead.passengerDetails.length > 0 && (
+              <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">All Passengers Details</h3>
+                <div className="space-y-6">
+                  {selectedLead.passengerDetails.map((room, roomIdx) => (
+                    <div key={roomIdx} className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                      <h4 className="text-md font-semibold text-purple-700 mb-3">Room {room.roomNumber || roomIdx + 1}</h4>
+
+                      {/* Adults */}
+                      {room.adults && room.adults.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <span className="mr-2">👤</span> Adults ({room.adults.length})
+                          </h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {room.adults.map((adult, adultIdx) => (
+                              <div key={adultIdx} className="bg-white rounded p-3 border border-purple-100">
+                                <p className="text-xs font-semibold text-purple-600 mb-1">Adult {adultIdx + 1}</p>
+                                <div className="space-y-1 text-xs">
+                                  <p><span className="font-medium">Name:</span> {adult.name || 'N/A'}</p>
+                                  <p><span className="font-medium">Passport:</span> {adult.passport || 'N/A'}</p>
+                                  <p><span className="font-medium">Country:</span> {adult.country || 'N/A'}</p>
+                                  {adult.arrivalFlightNumber && (
+                                    <>
+                                      <p className="text-xs font-semibold text-green-600 mt-1">Arrival</p>
+                                      <p><span className="font-medium">Flight:</span> {adult.arrivalFlightNumber} at {adult.arrivalTime}</p>
+                                    </>
+                                  )}
+                                  {adult.departureFlightNumber && (
+                                    <>
+                                      <p className="text-xs font-semibold text-orange-600 mt-1">Departure</p>
+                                      <p><span className="font-medium">Flight:</span> {adult.departureFlightNumber} at {adult.departureTime}</p>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Children */}
+                      {room.children && room.children.length > 0 && (
+                        <div>
+                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                            <span className="mr-2">👶</span> Children ({room.children.length})
+                          </h5>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {room.children.map((child, childIdx) => (
+                              <div key={childIdx} className="bg-white rounded p-3 border border-purple-100">
+                                <p className="text-xs font-semibold text-blue-600 mb-1">Child {childIdx + 1}</p>
+                                <div className="space-y-1 text-xs">
+                                  <p><span className="font-medium">Name:</span> {child.name || 'N/A'}</p>
+                                  <p><span className="font-medium">Age:</span> {child.age || 'N/A'}</p>
+                                  <p><span className="font-medium">Passport:</span> {child.passport || 'N/A'}</p>
+                                  <p><span className="font-medium">Country:</span> {child.country || 'N/A'}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Payment Details */}
+            {selectedLead.totalAmount && (
+              <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Details</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
+                    <p className="text-2xl font-bold text-green-600">${selectedLead.totalAmount?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-600">Total Amount</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
+                    <p className="text-2xl font-bold text-green-600">${selectedLead.paidAmount?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-600">Paid</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
+                    <p className="text-2xl font-bold text-red-600">${selectedLead.balance?.toLocaleString() || 0}</p>
+                    <p className="text-xs text-gray-600">Balance</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
+                    <p className="text-2xl font-bold text-blue-600">{selectedLead.status || 'Pending'}</p>
+                    <p className="text-xs text-gray-600">Status</p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="flex justify-end">
               <Button variant="outline" onClick={() => setShowProfileModal(false)}>
@@ -817,11 +953,19 @@ const Booking = () => {
       </Modal>
 
       {/* Edit Modal */}
-      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Lead">
-        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[600px] overflow-y-auto">
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Booking Details">
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Booking Information Summary */}
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-800 mb-2">Booking Information</h4>
+            <p className="text-sm text-gray-700">Editing: <span className="font-bold">{formData.bookingNumber || formData.guestName}</span></p>
+          </div>
+
           {/* Contact Information */}
-          <div className="bg-luxury-light p-4 rounded-lg">
-            <h4 className="font-semibold text-gold-500 mb-3">Contact Information</h4>
+          <div className="bg-white border border-gray-200 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+              <FiUser className="mr-2 text-blue-500" /> Primary Guest Information
+            </h4>
             <div className="space-y-3">
               <Input
                 label="Guest Name"
@@ -845,71 +989,87 @@ const Booking = () => {
             </div>
           </div>
 
-          {/* Travel Details */}
-          <div className="bg-luxury-light p-4 rounded-lg">
-            <h4 className="font-semibold text-gold-500 mb-3">Travel Details</h4>
+          {/* Property & Stay Details */}
+          <div className="bg-white border border-gray-200 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-800 mb-3">Property & Stay Details</h4>
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Check-in Date</label>
-                <Input
-                  type="date"
-                  value={formData.checkIn || ''}
-                  onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Check-in Date</label>
+                  <Input
+                    type="date"
+                    value={formData.checkIn || ''}
+                    onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Check-out Date</label>
+                  <Input
+                    type="date"
+                    value={formData.checkOut || ''}
+                    onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                  />
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Check-out Date</label>
-                <Input
-                  type="date"
-                  value={formData.checkOut || ''}
-                  onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Guest Details */}
-          <div className="bg-luxury-light p-4 rounded-lg">
-            <h4 className="font-semibold text-gold-500 mb-3">Guest Details</h4>
-            <div className="grid grid-cols-3 gap-3">
-              <Input
-                label="Adults"
-                type="number"
-                min="1"
-                value={formData.adults || 1}
-                onChange={(e) => setFormData({ ...formData, adults: parseInt(e.target.value) || 1 })}
-              />
-              <Input
-                label="Children"
-                type="number"
-                min="0"
-                value={formData.children || 0}
-                onChange={(e) => setFormData({ ...formData, children: parseInt(e.target.value) || 0 })}
-              />
-              <Input
-                label="Rooms"
-                type="number"
-                min="1"
-                value={formData.rooms || 1}
-                onChange={(e) => setFormData({ ...formData, rooms: parseInt(e.target.value) || 1 })}
-              />
-            </div>
-          </div>
-
-          {/* Booking Details */}
-          <div className="bg-luxury-light p-4 rounded-lg">
-            <h4 className="font-semibold text-gold-500 mb-3">Booking Details</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Meal Plan</label>
-                <Input
+                <label className="block text-sm font-medium text-gray-700 mb-2">Meal Plan</label>
+                <select
+                  className="input-luxury w-full"
                   value={formData.mealPlan || ''}
                   onChange={(e) => setFormData({ ...formData, mealPlan: e.target.value })}
-                  placeholder="e.g., All-Inclusive, Half Board"
+                >
+                  <option value="">Select Meal Plan</option>
+                  <option value="All-Inclusive">All-Inclusive</option>
+                  <option value="Full Board">Full Board</option>
+                  <option value="Half Board">Half Board</option>
+                  <option value="Bed & Breakfast">Bed & Breakfast</option>
+                  <option value="Room Only">Room Only</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Guest Configuration */}
+          <div className="bg-white border border-gray-200 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-800 mb-3">Guest Configuration</h4>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Rooms</label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={formData.rooms || 1}
+                  onChange={(e) => setFormData({ ...formData, rooms: parseInt(e.target.value) || 1 })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Total Amount</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Adults</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.adults || 1}
+                  onChange={(e) => setFormData({ ...formData, adults: parseInt(e.target.value) || 1 })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Children</label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={formData.children || 0}
+                  onChange={(e) => setFormData({ ...formData, children: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Details */}
+          <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 rounded-lg">
+            <h4 className="font-semibold text-green-800 mb-3">Payment Details</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Total Amount ($)</label>
                 <Input
                   type="number"
                   min="0"
@@ -918,27 +1078,60 @@ const Booking = () => {
                   onChange={(e) => setFormData({ ...formData, totalAmount: parseFloat(e.target.value) || 0 })}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Paid Amount ($)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.paidAmount || 0}
+                  onChange={(e) => setFormData({ ...formData, paidAmount: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+            <div className="mt-3 p-3 bg-white rounded border border-green-200">
+              <p className="text-sm">
+                <span className="font-medium text-gray-700">Balance:</span> 
+                <span className="font-bold text-red-600 ml-2">
+                  ${((formData.totalAmount || 0) - (formData.paidAmount || 0)).toFixed(2)}
+                </span>
+              </p>
             </div>
           </div>
 
-          {/* Special Requests */}
-          <div className="bg-luxury-light p-4 rounded-lg">
-            <label className="block text-sm font-medium text-gray-300 mb-2">Special Requests</label>
-            <textarea
-              className="input-luxury w-full"
-              rows="2"
-              value={formData.specialRequests || ''}
-              onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
-              placeholder="Any special requests or notes"
-            />
-          </div>
-
-          {/* Lead Status */}
-          <div className="bg-luxury-light p-4 rounded-lg">
-            <h4 className="font-semibold text-gold-500 mb-3">Lead Status</h4>
+          {/* Special Requests & Notes */}
+          <div className="bg-white border border-gray-200 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-800 mb-3">Additional Information</h4>
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Source</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Special Requests</label>
+                <textarea
+                  className="input-luxury w-full"
+                  rows="2"
+                  value={formData.specialRequests || ''}
+                  onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
+                  placeholder="Any special requests (dietary requirements, room preferences, etc.)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Internal Notes</label>
+                <textarea
+                  className="input-luxury w-full"
+                  rows="2"
+                  value={formData.notes || ''}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Internal notes (not visible to customer)"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Status Management */}
+          <div className="bg-white border border-gray-200 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-800 mb-3">Booking Status</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Source</label>
                 <select
                   className="input-luxury w-full"
                   value={formData.source || ''}
@@ -947,15 +1140,17 @@ const Booking = () => {
                 >
                   <option value="">Select Source</option>
                   <option value="Website">Website</option>
-                  <option value="Booking">Booking</option>
+                  <option value="Booking.com">Booking.com</option>
                   <option value="Phone">Phone</option>
                   <option value="Email">Email</option>
+                  <option value="WhatsApp">WhatsApp</option>
                   <option value="Social Media">Social Media</option>
                   <option value="Referral">Referral</option>
+                  <option value="Walk-in">Walk-in</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
                 <select
                   className="input-luxury w-full"
                   value={formData.status || ''}
@@ -966,17 +1161,31 @@ const Booking = () => {
                   <option value="Pending">Pending</option>
                   <option value="Confirmed">Confirmed</option>
                   <option value="Contacted">Contacted</option>
-                  <option value="Qualified">Qualified</option>
-                  <option value="Converted">Converted</option>
-                  <option value="Lost">Lost</option>
+                  <option value="Checked-in">Checked-in</option>
+                  <option value="Checked-out">Checked-out</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="No-show">No-show</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 sticky bottom-0 bg-white">
+          {/* Passenger Details Note */}
+          {formData.passengerDetails && formData.passengerDetails.length > 0 && (
+            <div className="bg-purple-50 border-2 border-purple-200 p-4 rounded-lg">
+              <h4 className="font-semibold text-purple-800 mb-2 flex items-center">
+                <span className="mr-2">ℹ️</span> Passenger Details
+              </h4>
+              <p className="text-sm text-purple-700">
+                This booking has {formData.passengerDetails.length} room(s) with passenger details recorded. 
+                To edit passenger information, please contact the customer directly.
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4 sticky bottom-0 bg-white border-t border-gray-200 mt-4">
             <Button type="submit" variant="primary" className="flex-1">
-              Update Lead
+              💾 Update Booking
             </Button>
             <Button type="button" variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">
               Cancel

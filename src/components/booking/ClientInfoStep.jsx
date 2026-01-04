@@ -7,11 +7,47 @@ const ClientInfoStep = ({
   passengerDetails,
   handlePassengerChange,
   handleChildPassengerChange,
-  roomConfigs
+  roomConfigs,
+  savedBookings = []
 }) => {
   return (
     <div className="space-y-6 font-luxury">
       <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Guest Information</h2>
+
+      {/* Display All Saved Bookings Summary */}
+      {savedBookings && savedBookings.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">All Booked Rooms Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {savedBookings.map((booking, index) => (
+              <div key={index} className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-xl p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <h4 className="text-base font-bold text-gray-900">Booking {index + 1}</h4>
+                  <span className="px-2 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                    ✓ Saved
+                  </span>
+                </div>
+                <div className="space-y-1 text-xs text-gray-700">
+                  <p><span className="font-semibold">Room:</span> {booking.roomName}</p>
+                  <p><span className="font-semibold">Resort:</span> {booking.resortName}</p>
+                  <p><span className="font-semibold">Dates:</span> {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}</p>
+                  <p><span className="font-semibold">Guests:</span> {booking.totalAdults} Adult{booking.totalAdults !== 1 ? 's' : ''}{booking.totalChildren > 0 && `, ${booking.totalChildren} Child${booking.totalChildren !== 1 ? 'ren' : ''}`}</p>
+                  <p><span className="font-semibold">Rooms:</span> {booking.totalRooms}</p>
+                  {booking.mealPlan && <p><span className="font-semibold">Meal:</span> {booking.mealPlan}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800 font-medium">
+              📋 Total Bookings: {savedBookings.length} | 
+              Total Rooms: {savedBookings.reduce((sum, b) => sum + b.totalRooms, 0)} | 
+              Total Guests: {savedBookings.reduce((sum, b) => sum + b.totalAdults + b.totalChildren, 0)}
+            </p>
+          </div>
+        </div>
+      )}
+      
       <div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 sm:p-4 rounded-lg mb-6 sm:mb-8">
         <div className="flex">
           <div className="flex-shrink-0">
@@ -92,11 +128,18 @@ const ClientInfoStep = ({
         </div>
       </div>
       <div className="mt-8">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Guests Details</h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Guests Details for All Bookings</h3>
 
         {passengerDetails.map((room, roomIdx) => (
           <div key={`room-${roomIdx}`} className="mb-8 p-6 border-2 border-yellow-500/30 rounded-lg bg-white">
-            <h4 className="text-xl font-semibold text-yellow-600 mb-4">Room {room.roomNumber}</h4>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-xl font-semibold text-yellow-600">
+                {room.bookingName || `Booking ${room.bookingIndex + 1}`} - {room.roomName || `Room ${room.roomNumber}`}
+              </h4>
+              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full">
+                Room {room.roomNumber}
+              </span>
+            </div>
 
             {/* Adult Guests for this room */}
             <div className="mb-6">

@@ -43,13 +43,12 @@ const TravelRooms = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Back Button */}
-      <div className="p-4 md:p-6">
+      <div className="max-w-7xl mx-auto p-6">
         <button
           onClick={() => navigate(`/travel/overview/${resortId}`)}
-          className="bg-white hover:bg-gray-50 text-gray-800 px-3 py-2 md:px-5 md:py-2.5 rounded-lg flex items-center gap-2 shadow-lg transition-all duration-300 hover:shadow-xl border border-gray-200"
+          className="text-sm text-gray-500 hover:text-gold-600"
         >
-          <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="font-semibold text-sm md:text-base">Back to Overview</span>
+          ← Back
         </button>
       </div>
 

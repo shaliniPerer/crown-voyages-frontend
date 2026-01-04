@@ -31,6 +31,7 @@ const BookingFlow = () => {
     specialRequests: '',
   });
   const [roomConfigs, setRoomConfigs] = useState([{ adults: 1, children: 0, childrenAges: [] }]);
+  const [savedBookings, setSavedBookings] = useState([]);
   const [passengerDetails, setPassengerDetails] = useState([]);
   const [errors, setErrors] = useState({});
   const [offers, setOffers] = useState([]);
@@ -42,6 +43,18 @@ const BookingFlow = () => {
       setBookingData(prev => ({ ...prev, ...location.state }));
     }
     fetchData();
+    
+    // Load saved bookings from localStorage
+    const pendingBookings = localStorage.getItem('pendingBookings');
+    if (pendingBookings) {
+      try {
+        const bookings = JSON.parse(pendingBookings);
+        setSavedBookings(bookings);
+        toast.info(`${bookings.length} room${bookings.length > 1 ? 's' : ''} already added to booking`);
+      } catch (error) {
+        console.error('Error loading saved bookings:', error);
+      }
+    }
   }, [roomId, location.state]);
 
   useEffect(() => {
@@ -143,35 +156,83 @@ const BookingFlow = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const saveCurrentBooking = () => {
+    const bookingSummary = {
+      roomId: room._id,
+      roomName: room.roomName,
+      resortId: resort._id,
+      resortName: resort.name,
+      checkIn: bookingData.checkIn,
+      checkOut: bookingData.checkOut,
+      mealPlan: bookingData.mealPlan,
+      roomConfigs: [...roomConfigs],
+      totalRooms: roomConfigs.length,
+      totalAdults: roomConfigs.reduce((sum, config) => sum + config.adults, 0),
+      totalChildren: roomConfigs.reduce((sum, config) => sum + config.children, 0)
+    };
+    setSavedBookings(prev => [...prev, bookingSummary]);
+    return bookingSummary;
+  };
+
+  const handleBookAnotherRoom = () => {
+    // Validate dates first
+    if (!bookingData.checkIn || !bookingData.checkOut) {
+      toast.error('Please select check-in and check-out dates');
+      return;
+    }
+    // Save current booking
+    const currentBooking = saveCurrentBooking();
+    
+    // Store all bookings in localStorage before navigating
+    const allBookings = [...savedBookings, currentBooking];
+    localStorage.setItem('pendingBookings', JSON.stringify(allBookings));
+    
+    toast.success('Booking saved! Select another room.');
+    // Navigate back to travel rooms page with resort id
+    navigate(`/travel/rooms/${resort._id}`);
+  };
+
   const nextStep = () => {
     if (validateStep(currentStep)) {
       if (currentStep === 0) {
-        // Update passenger details when moving to client info
+        // Save current booking summary before proceeding
+        const currentBooking = saveCurrentBooking();
+        toast.success('Booking summary saved!');
+        
+        // Create passenger details for ALL bookings (saved + current)
+        const allBookings = [...savedBookings, currentBooking];
         const newPassengerDetails = [];
-        for (let i = 0; i < bookingData.rooms; i++) {
-          const config = roomConfigs[i] || { adults: 1, children: 0 };
-          newPassengerDetails.push({
-            roomNumber: i + 1,
-            adults: Array.from({ length: config.adults }, () => ({
-              name: '',
-              passport: '',
-              country: '',
-              arrivalFlightNumber: '',
-              arrivalTime: '',
-              departureFlightNumber: '',
-              departureTime: '',
-            })),
-            children: Array.from({ length: config.children }, () => ({
-              name: '',
-              passport: '',
-              country: '',
-              arrivalFlightNumber: '',
-              arrivalTime: '',
-              departureFlightNumber: '',
-              departureTime: '',
-            })),
+        
+        allBookings.forEach((booking, bookingIdx) => {
+          booking.roomConfigs.forEach((config, roomIdx) => {
+            newPassengerDetails.push({
+              bookingIndex: bookingIdx,
+              bookingName: `Booking ${bookingIdx + 1}`,
+              roomName: booking.roomName,
+              roomNumber: roomIdx + 1,
+              adults: Array.from({ length: config.adults }, () => ({
+                name: '',
+                passport: '',
+                country: '',
+                arrivalFlightNumber: '',
+                arrivalTime: '',
+                departureFlightNumber: '',
+                departureTime: '',
+              })),
+              children: Array.from({ length: config.children }, () => ({
+                name: '',
+                passport: '',
+                country: '',
+                age: config.childrenAges?.[0] || 0,
+                arrivalFlightNumber: '',
+                arrivalTime: '',
+                departureFlightNumber: '',
+                departureTime: '',
+              })),
+            });
           });
-        }
+        });
+        
         setPassengerDetails(newPassengerDetails);
       }
       setCurrentStep(prev => prev + 1);
@@ -184,83 +245,82 @@ const BookingFlow = () => {
 
   const handleSubmit = async () => {
     try {
-      if (!roomId || !resort?._id) {
-        throw new Error('Room or resort information is missing');
-      }
-
       // Validate required fields
       if (!bookingData.clientName || !bookingData.clientEmail || !bookingData.clientPhone) {
         throw new Error('Client information is incomplete');
       }
-      if (!bookingData.checkIn || !bookingData.checkOut) {
-        throw new Error('Check-in and check-out dates are required');
-      }
-      if (!bookingData.adults || bookingData.adults < 1) {
-        throw new Error('At least 1 adult is required');
-      }
 
-      const totalAmount = calculateTotalAmount();
-      // Don't validate total amount, allow 0 or any value
-      console.log('Total amount calculation:', { nights: calculateNights(bookingData.checkIn, bookingData.checkOut), basePrice: room.price * calculateNights(bookingData.checkIn, bookingData.checkOut) * bookingData.rooms, mealPlanPrice: (bookingData.selectedMealPlan?.price || 0) * calculateNights(bookingData.checkIn, bookingData.checkOut) * (bookingData.adults + bookingData.children) * bookingData.rooms, total: totalAmount, roomPrice: room.price });
-
-      // Validate ObjectIds
-      const objectIdRegex = /^[0-9a-fA-F]{24}$/;
-      if (!objectIdRegex.test(roomId) || !objectIdRegex.test(resort._id)) {
-        throw new Error('Invalid room or resort ID format');
-      }
-
-      const checkInDate = new Date(bookingData.checkIn);
-      const checkOutDate = new Date(bookingData.checkOut);
+      // Create bookings for all saved bookings
+      const allBookings = savedBookings;
       
-      if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
-        throw new Error('Invalid check-in or check-out date');
-      }
-      
-      if (checkOutDate <= checkInDate) {
-        throw new Error('Check-out date must be after check-in date');
+      if (!allBookings || allBookings.length === 0) {
+        throw new Error('No bookings to submit');
       }
 
-      const payload = {
-        room: roomId,
-        guestName: bookingData.clientName.trim(),
-        email: bookingData.clientEmail.trim().toLowerCase(),
-        phone: bookingData.clientPhone.trim(),
-        resort: resort._id,
-        checkIn: checkInDate,
-        checkOut: checkOutDate,
-        adults: Number(bookingData.adults),
-        children: Number(bookingData.children || 0),
-        rooms: Number(bookingData.rooms || 1),
-        mealPlan: bookingData.mealPlan,
-        totalAmount: totalAmount || 0, // Use calculated amount or 0
-        specialRequests: bookingData.specialRequests?.trim(),
-        passengerDetails: passengerDetails, // Include passenger details
-      };
-      console.log('Booking payload:', payload);
-      // Create both booking and lead
-      await Promise.all([
-        bookingApi.createBooking(payload),
-        bookingApi.createLead({
-          guestName: payload.guestName,
-          email: payload.email,
-          phone: payload.phone,
-          resort: payload.resort,
-          room: payload.room,
-          checkIn: payload.checkIn,
-          checkOut: payload.checkOut,
-          adults: payload.adults,
-          children: payload.children,
-          rooms: payload.rooms,
-          mealPlan: payload.mealPlan,
-          specialRequests: payload.specialRequests,
-          totalAmount: payload.totalAmount,
-          source: 'Booking',
-        })
-      ]);
-      toast.success('Booking and lead created successfully!');
+      const bookingPromises = [];
+      
+      for (const booking of allBookings) {
+        const checkInDate = new Date(booking.checkIn);
+        const checkOutDate = new Date(booking.checkOut);
+        
+        if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+          throw new Error('Invalid check-in or check-out date');
+        }
+        
+        if (checkOutDate <= checkInDate) {
+          throw new Error('Check-out date must be after check-in date');
+        }
+
+        const payload = {
+          room: booking.roomId,
+          guestName: bookingData.clientName.trim(),
+          email: bookingData.clientEmail.trim().toLowerCase(),
+          phone: bookingData.clientPhone.trim(),
+          resort: booking.resortId,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          adults: Number(booking.totalAdults),
+          children: Number(booking.totalChildren || 0),
+          rooms: Number(booking.totalRooms || 1),
+          mealPlan: booking.mealPlan,
+          totalAmount: 0, // Calculate later if needed
+          specialRequests: bookingData.specialRequests?.trim(),
+          passengerDetails: passengerDetails.filter(p => p.bookingIndex === allBookings.indexOf(booking)),
+        };
+        
+        // Create both booking and lead for each
+        bookingPromises.push(
+          Promise.all([
+            bookingApi.createBooking(payload),
+            bookingApi.createLead({
+              guestName: payload.guestName,
+              email: payload.email,
+              phone: payload.phone,
+              resort: payload.resort,
+              room: payload.room,
+              checkIn: payload.checkIn,
+              checkOut: payload.checkOut,
+              adults: payload.adults,
+              children: payload.children,
+              rooms: payload.rooms,
+              mealPlan: payload.mealPlan,
+              specialRequests: payload.specialRequests,
+              totalAmount: payload.totalAmount,
+              source: 'Booking',
+            })
+          ])
+        );
+      }
+      
+      await Promise.all(bookingPromises);
+      
+      // Clear localStorage after successful submission
+      localStorage.removeItem('pendingBookings');
+      
+      toast.success(`${allBookings.length} booking${allBookings.length > 1 ? 's' : ''} created successfully!`);
       setCurrentStep(3); // Go to confirmation
     } catch (error) {
-      toast.error('Failed to create booking');
+      toast.error('Failed to create booking: ' + error.message);
       console.error('Booking creation error:', error);
       console.error('Error response:', error.response?.data);
       console.error('Error status:', error.response?.status);
@@ -340,6 +400,10 @@ const BookingFlow = () => {
                 roomName={room.roomName}
                 roomConfigs={roomConfigs}
                 handleRoomConfigChange={handleRoomConfigChange}
+                handleChildAgeChange={handleChildAgeChange}
+                handleNext={nextStep}
+                handleBookAnotherRoom={handleBookAnotherRoom}
+                savedBookings={savedBookings}
               />
             )}
             {currentStep === 1 && (
@@ -351,6 +415,7 @@ const BookingFlow = () => {
                 handlePassengerChange={handlePassengerChange}
                 handleChildPassengerChange={handleChildPassengerChange}
                 roomConfigs={roomConfigs}
+                savedBookings={savedBookings}
               />
             )}
             {currentStep === 2 && (
@@ -365,6 +430,8 @@ const BookingFlow = () => {
                 basePricePerNight={room.price}
                 autoAppliedOffers={autoAppliedOffers}
                 selectedOffer={selectedOffer}
+                savedBookings={savedBookings}
+                passengerDetails={passengerDetails}
               />
             )}
             {currentStep === 3 && (
@@ -377,10 +444,10 @@ const BookingFlow = () => {
           </div>
 
           {/* Navigation Buttons */}
-          {currentStep < 3 && (
+          {currentStep > 0 && currentStep < 3 && (
             <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mt-8 pt-6 border-t border-gray-200">
               <div className="flex justify-start">
-                {currentStep > 0 && currentStep !== 2 && (
+                {currentStep > 0 && (
                   <button
                     onClick={prevStep}
                     className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
@@ -390,7 +457,7 @@ const BookingFlow = () => {
                 )}
               </div>
               <div className="flex justify-end">
-                {currentStep < 2 ? (
+                {currentStep === 1 ? (
                   <button
                     onClick={nextStep}
                     className="px-8 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all duration-200 font-semibold shadow-lg"
@@ -398,20 +465,12 @@ const BookingFlow = () => {
                     Next →
                   </button>
                 ) : currentStep === 2 ? (
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      onClick={() => navigate('/travel')}
-                      className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 font-medium"
-                    >
-                      Add Another Room
-                    </button>
-                    <button
-                      onClick={handleSubmit}
-                      className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-semibold shadow-lg"
-                    >
-                      Submit Booking
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleSubmit}
+                    className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-semibold shadow-lg"
+                  >
+                    Submit Booking
+                  </button>
                 ) : null}
               </div>
             </div>
