@@ -123,6 +123,13 @@ const BookingFlow = () => {
     });
   };
 
+  const handleRemoveBooking = (index) => {
+    const updatedBookings = savedBookings.filter((_, i) => i !== index);
+    setSavedBookings(updatedBookings);
+    localStorage.setItem('pendingBookings', JSON.stringify(updatedBookings));
+    toast.info('Booking removed successfully');
+  };
+
   const handlePassengerChange = (roomIdx, adultIdx, field, value) => {
     setPassengerDetails(prev => {
       const newDetails = [...prev];
@@ -160,8 +167,22 @@ const BookingFlow = () => {
     const bookingSummary = {
       roomId: room._id,
       roomName: room.roomName,
+      roomType: room.roomType,
+      roomDescription: room.description,
+      roomSize: room.size,
+      roomBedType: room.bedType,
+      roomMaxAdults: room.maxAdults,
+      roomMaxChildren: room.maxChildren,
+      roomAmenities: room.amenities || [],
+      roomImages: room.images || [],
       resortId: resort._id,
       resortName: resort.name,
+      resortLocation: resort.location,
+      resortStarRating: resort.starRating,
+      resortDescription: resort.description,
+      resortAmenities: resort.amenities || [],
+      resortMealPlan: resort.mealPlan,
+      resortImages: resort.images || [],
       checkIn: bookingData.checkIn,
       checkOut: bookingData.checkOut,
       mealPlan: bookingData.mealPlan,
@@ -250,15 +271,14 @@ const BookingFlow = () => {
         throw new Error('Client information is incomplete');
       }
 
-      // Create bookings for all saved bookings
+      // Get all bookings
       const allBookings = savedBookings;
       
       if (!allBookings || allBookings.length === 0) {
         throw new Error('No bookings to submit');
       }
 
-      const bookingPromises = [];
-      
+      // Validate dates for all bookings
       for (const booking of allBookings) {
         const checkInDate = new Date(booking.checkIn);
         const checkOutDate = new Date(booking.checkOut);
@@ -270,54 +290,75 @@ const BookingFlow = () => {
         if (checkOutDate <= checkInDate) {
           throw new Error('Check-out date must be after check-in date');
         }
-
-        const payload = {
-          room: booking.roomId,
-          guestName: bookingData.clientName.trim(),
-          email: bookingData.clientEmail.trim().toLowerCase(),
-          phone: bookingData.clientPhone.trim(),
-          resort: booking.resortId,
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          adults: Number(booking.totalAdults),
-          children: Number(booking.totalChildren || 0),
-          rooms: Number(booking.totalRooms || 1),
-          mealPlan: booking.mealPlan,
-          totalAmount: 0, // Calculate later if needed
-          specialRequests: bookingData.specialRequests?.trim(),
-          passengerDetails: passengerDetails.filter(p => p.bookingIndex === allBookings.indexOf(booking)),
-        };
-        
-        // Create both booking and lead for each
-        bookingPromises.push(
-          Promise.all([
-            bookingApi.createBooking(payload),
-            bookingApi.createLead({
-              guestName: payload.guestName,
-              email: payload.email,
-              phone: payload.phone,
-              resort: payload.resort,
-              room: payload.room,
-              checkIn: payload.checkIn,
-              checkOut: payload.checkOut,
-              adults: payload.adults,
-              children: payload.children,
-              rooms: payload.rooms,
-              mealPlan: payload.mealPlan,
-              specialRequests: payload.specialRequests,
-              totalAmount: payload.totalAmount,
-              source: 'Booking',
-            })
-          ])
-        );
       }
+
+      // Calculate totals across all bookings
+      const totalAdults = allBookings.reduce((sum, b) => sum + b.totalAdults, 0);
+      const totalChildren = allBookings.reduce((sum, b) => sum + b.totalChildren, 0);
+      const totalRooms = allBookings.reduce((sum, b) => sum + b.totalRooms, 0);
+
+      // Use the first booking's dates and resort/room as primary (for backward compatibility)
+      const primaryBooking = allBookings[0];
       
-      await Promise.all(bookingPromises);
+      // Create ONE consolidated lead with all bookings
+      const leadPayload = {
+        guestName: bookingData.clientName.trim(),
+        email: bookingData.clientEmail.trim().toLowerCase(),
+        phone: bookingData.clientPhone.trim(),
+        resort: primaryBooking.resortId,
+        room: primaryBooking.roomId,
+        checkIn: new Date(primaryBooking.checkIn),
+        checkOut: new Date(primaryBooking.checkOut),
+        adults: totalAdults,
+        children: totalChildren,
+        rooms: totalRooms,
+        mealPlan: primaryBooking.mealPlan,
+        specialRequests: bookingData.specialRequests?.trim(),
+        totalAmount: 0, // Calculate later if needed
+        source: 'Booking',
+        // Include ALL room configurations from ALL bookings
+        roomConfigs: allBookings.flatMap(b => b.roomConfigs || []),
+        // Include ALL bookings with complete details including images
+        savedBookings: allBookings.map(b => ({
+          roomId: b.roomId,
+          roomName: b.roomName,
+          roomType: b.roomType,
+          roomDescription: b.roomDescription,
+          roomSize: b.roomSize,
+          roomBedType: b.roomBedType,
+          roomMaxAdults: b.roomMaxAdults,
+          roomMaxChildren: b.roomMaxChildren,
+          roomAmenities: b.roomAmenities || [],
+          roomImages: b.roomImages || [],
+          resortId: b.resortId,
+          resortName: b.resortName,
+          resortLocation: b.resortLocation,
+          resortStarRating: b.resortStarRating,
+          resortDescription: b.resortDescription,
+          resortAmenities: b.resortAmenities || [],
+          resortMealPlan: b.resortMealPlan,
+          resortImages: b.resortImages || [],
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          mealPlan: b.mealPlan,
+          roomConfigs: b.roomConfigs || [],
+          totalRooms: b.totalRooms,
+          totalAdults: b.totalAdults,
+          totalChildren: b.totalChildren
+        })),
+        // Include ALL passenger details from ALL bookings
+        passengerDetails: passengerDetails,
+      };
+
+      console.log('Creating single consolidated lead with payload:', leadPayload);
+      
+      // Create only ONE lead for all bookings
+      await bookingApi.createLead(leadPayload);
       
       // Clear localStorage after successful submission
       localStorage.removeItem('pendingBookings');
       
-      toast.success(`${allBookings.length} booking${allBookings.length > 1 ? 's' : ''} created successfully!`);
+      toast.success(`Booking created successfully with ${allBookings.length} room selection${allBookings.length > 1 ? 's' : ''}!`);
       setCurrentStep(3); // Go to confirmation
     } catch (error) {
       toast.error('Failed to create booking: ' + error.message);
@@ -404,6 +445,7 @@ const BookingFlow = () => {
                 handleNext={nextStep}
                 handleBookAnotherRoom={handleBookAnotherRoom}
                 savedBookings={savedBookings}
+                onRemoveBooking={handleRemoveBooking}
               />
             )}
             {currentStep === 1 && (
@@ -467,7 +509,7 @@ const BookingFlow = () => {
                 ) : currentStep === 2 ? (
                   <button
                     onClick={handleSubmit}
-                    className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 font-semibold shadow-lg"
+                    className="px-8 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all duration-200 font-semibold shadow-lg"
                   >
                     Submit Booking
                   </button>

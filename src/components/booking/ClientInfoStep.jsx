@@ -250,7 +250,7 @@ const ClientInfoStep = ({
                     <div key={`child-${roomIdx}-${childIdx}`} className="mb-8 p-4 border border-gray-200 rounded-lg bg-indigo-50">
                       <h5 className="font-medium text-gray-700 mb-2 flex items-center">Child {childIdx + 1}
                         <span className="ml-3 text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-1 rounded-full">
-                          Age: {roomConfigs[roomIdx]?.childrenAges[childIdx] ? `${roomConfigs[roomIdx].childrenAges[childIdx]} ${roomConfigs[roomIdx].childrenAges[childIdx] === 1 ? 'year' : 'years'}` : 'N/A'}
+                          Age: {roomConfigs[roomIdx]?.childrenAges[childIdx] !== undefined && roomConfigs[roomIdx]?.childrenAges[childIdx] !== null ? `${roomConfigs[roomIdx].childrenAges[childIdx]} ${roomConfigs[roomIdx].childrenAges[childIdx] === 1 ? 'year' : 'years'}` : 'Not specified'}
                         </span>
                       </h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

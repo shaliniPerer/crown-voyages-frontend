@@ -3,10 +3,14 @@ import Input from '../common/Input';
 import Select from '../common/Select';
 import Textarea from '../common/Textarea';
 import Button from '../common/Button';
-import { FiUser, FiMail, FiPhone, FiMapPin } from 'react-icons/fi';
+import { FiUser, FiMail, FiPhone, FiMapPin, FiImage } from 'react-icons/fi';
 
 // Booking Details Component
 export const BookingDetails = ({ booking }) => {
+  const [showImageGallery, setShowImageGallery] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [galleryTitle, setGalleryTitle] = useState('');
+
   if (!booking) return null;
 
   const calculateNights = (checkIn, checkOut) => {
@@ -14,8 +18,106 @@ export const BookingDetails = ({ booking }) => {
     return Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
   };
 
+  const openGallery = (images, title) => {
+    setSelectedImages(images || []);
+    setGalleryTitle(title);
+    setShowImageGallery(true);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Resort and Room Photos */}
+      {(booking.resort?.images?.length > 0 || booking.room?.images?.length > 0) && (
+        <div className="bg-white border-2 border-gray-200 rounded-xl p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <FiImage className="mr-2" /> Property Photos
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Resort Photos */}
+            {booking.resort?.images?.length > 0 && (
+              <div>
+                <h4 className="text-md font-medium text-gray-700 mb-3">{booking.resort.name} - Resort Photos</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {booking.resort.images.slice(0, 6).map((img, idx) => (
+                    <div key={idx} className="relative group cursor-pointer" onClick={() => openGallery(booking.resort.images, `${booking.resort.name} - Resort`)}>
+                      <img
+                        src={img}
+                        alt={`Resort ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border-2 border-gray-200 group-hover:border-blue-400 transition-all"
+                      />
+                      {idx === 5 && booking.resort.images.length > 6 && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center text-white font-bold">
+                          +{booking.resort.images.length - 6}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => openGallery(booking.resort.images, `${booking.resort.name} - Resort`)}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  View all {booking.resort.images.length} photos
+                </button>
+              </div>
+            )}
+
+            {/* Room Photos */}
+            {booking.room?.images?.length > 0 && (
+              <div>
+                <h4 className="text-md font-medium text-gray-700 mb-3">{booking.room.roomName || booking.room.roomType} - Room Photos</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {booking.room.images.slice(0, 6).map((img, idx) => (
+                    <div key={idx} className="relative group cursor-pointer" onClick={() => openGallery(booking.room.images, `${booking.room.roomName || booking.room.roomType} - Room`)}>
+                      <img
+                        src={img}
+                        alt={`Room ${idx + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border-2 border-gray-200 group-hover:border-blue-400 transition-all"
+                      />
+                      {idx === 5 && booking.room.images.length > 6 && (
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center text-white font-bold">
+                          +{booking.room.images.length - 6}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => openGallery(booking.room.images, `${booking.room.roomName || booking.room.roomType} - Room`)}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  View all {booking.room.images.length} photos
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Image Gallery Modal */}
+      {showImageGallery && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4" onClick={() => setShowImageGallery(false)}>
+          <div className="max-w-6xl w-full max-h-[90vh] overflow-y-auto bg-gray-900 rounded-xl p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-white">{galleryTitle}</h3>
+              <button onClick={() => setShowImageGallery(false)} className="text-white hover:text-gray-300 text-2xl">
+                ×
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {selectedImages.map((img, idx) => (
+                <img
+                  key={idx}
+                  src={img}
+                  alt={`${galleryTitle} ${idx + 1}`}
+                  className="w-full h-64 object-cover rounded-lg"
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Booking Info */}
       <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-6">
         <div className="flex justify-between items-start mb-4">

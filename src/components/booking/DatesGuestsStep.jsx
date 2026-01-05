@@ -17,6 +17,7 @@ const DatesGuestsStep = ({
   handleNext,
   handleBookAnotherRoom,
   savedBookings = [],
+  onRemoveBooking,
 }) => {
   const [numberOfRooms, setNumberOfRooms] = React.useState(roomConfigs.length || 1);
 
@@ -239,9 +240,22 @@ const DatesGuestsStep = ({
                     <div key={index} className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-2xl p-6">
                       <div className="flex justify-between items-start mb-4">
                         <h4 className="text-lg font-bold text-gray-900">Booking Summary {index + 1}</h4>
-                        <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
-                          Saved
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                            Saved
+                          </span>
+                          {onRemoveBooking && (
+                            <button
+                              onClick={() => onRemoveBooking(index)}
+                              className="p-1 hover:bg-red-100 rounded-full transition-colors duration-200"
+                              title="Remove this booking"
+                            >
+                              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-2 text-sm text-gray-700">
                         {/* Room Details */}
@@ -294,9 +308,10 @@ const DatesGuestsStep = ({
                               </div>
                               {config.children > 0 && config.childrenAges && config.childrenAges.length > 0 && (
                                 <div className="text-xs text-gray-600 mt-1 ml-4">
-                                  Children ages: {config.childrenAges.filter(age => age > 0).join(', ') || 'Not specified'}
+                                  Children ages: {config.childrenAges.filter(age => age !== undefined && age !== null).join(', ') || 'Not specified'}
                                 </div>
                               )}
+
                             </div>
                           )
                         ))}
@@ -376,7 +391,7 @@ const DatesGuestsStep = ({
                         </div>
                         {config.children > 0 && config.childrenAges && config.childrenAges.length > 0 && (
                           <div className="text-xs text-gray-600 mt-1 ml-4">
-                            Children ages: {config.childrenAges.filter(age => age > 0).join(', ') || 'Not specified'}
+                            Children ages: {config.childrenAges.filter(age => age !== undefined && age !== null).join(', ') || 'Not specified'}
                           </div>
                         )}
                       </div>
@@ -409,29 +424,6 @@ const DatesGuestsStep = ({
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-4 mt-8">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={() => window.history.back()}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
-                >
-                  ← Previous
-                </button>
-                {handleBookAnotherRoom && (
-                  <button
-                    onClick={handleBookAnotherRoom}
-                    className="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 font-medium"
-                  >
-                    + Book Another Room
-                  </button>
-                )}
-                <button
-                  onClick={handleNext}
-                  className="flex-1 px-8 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all duration-200 font-semibold shadow-lg"
-                >
-                  Next →
-                </button>
-              </div>
-
               {/* Show saved bookings count */}
               {savedBookings && savedBookings.length > 0 && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
@@ -440,6 +432,33 @@ const DatesGuestsStep = ({
                   </p>
                 </div>
               )}
+              
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+                <div className="flex justify-start">
+                  <button
+                    onClick={() => window.history.back()}
+                    className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                  >
+                    ← Previous
+                  </button>
+                </div>
+                <div className="flex justify-end gap-4">
+                  {handleBookAnotherRoom && (
+                    <button
+                      onClick={handleBookAnotherRoom}
+                      className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-200 font-medium"
+                    >
+                      + Book Another Room
+                    </button>
+                  )}
+                  <button
+                    onClick={handleNext}
+                    className="px-8 py-3 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-lg hover:from-gold-600 hover:to-gold-700 transition-all duration-200 font-semibold shadow-lg"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
             </div>
            
           </div>

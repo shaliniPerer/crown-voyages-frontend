@@ -5,6 +5,7 @@ export const bookingApi = {
   getLeads: (params) => axios.get('/bookings/leads', { params }),
   updateLead: (id, data) => axios.patch(`/bookings/lead/${id}`, data),
   getLead: (id) => axios.get(`/bookings/lead/${id}`),
+  deleteLead: (id) => axios.delete(`/bookings/lead/${id}`),
   createBooking: (data) => axios.post('/bookings', data),
   createQuotation: (data) => axios.post('/bookings/quotation', data),
   getQuotations: (params) => axios.get('/bookings/quotations', { params }),

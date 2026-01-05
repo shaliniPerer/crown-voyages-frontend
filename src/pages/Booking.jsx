@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiPhone, FiMapPin } from 'react-icons/fi';
+import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2 } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -101,7 +101,10 @@ const Booking = () => {
       rooms: lead.rooms || 1,
       mealPlan: lead.mealPlan || '',
       specialRequests: lead.specialRequests || '',
+      notes: lead.notes || '',
       totalAmount: lead.totalAmount || 0,
+      paidAmount: lead.paidAmount || 0,
+      passengerDetails: lead.passengerDetails || [],
     });
     setShowEditModal(true);
   };
@@ -177,6 +180,16 @@ const Booking = () => {
       if (cleanData.resort === '') delete cleanData.resort;
       if (cleanData.room === '') delete cleanData.room;
       
+      // Ensure payment fields are numbers
+      if (cleanData.totalAmount !== undefined) {
+        cleanData.totalAmount = parseFloat(cleanData.totalAmount) || 0;
+      }
+      if (cleanData.paidAmount !== undefined) {
+        cleanData.paidAmount = parseFloat(cleanData.paidAmount) || 0;
+      }
+      
+      console.log('Submitting edit with data:', cleanData);
+      
       await bookingApi.updateLead(selectedLead._id, cleanData);
       toast.success('Lead updated successfully');
       setShowEditModal(false);
@@ -184,6 +197,32 @@ const Booking = () => {
     } catch (error) {
       console.error('Update error:', error);
       toast.error('Update failed: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleDeleteLead = async (leadId, leadName) => {
+    if (window.confirm(`Are you sure you want to delete lead for ${leadName}? This action cannot be undone.`)) {
+      try {
+        await bookingApi.deleteLead(leadId);
+        toast.success('Lead deleted successfully');
+        fetchData();
+      } catch (error) {
+        console.error('Delete error:', error);
+        toast.error('Delete failed: ' + (error.response?.data?.message || error.message));
+      }
+    }
+  };
+
+  const handleDeleteBooking = async (bookingId, bookingNumber) => {
+    if (window.confirm(`Are you sure you want to delete booking ${bookingNumber}? This action cannot be undone.`)) {
+      try {
+        await bookingApi.deleteBooking(bookingId);
+        toast.success('Booking deleted successfully');
+        fetchData();
+      } catch (error) {
+        console.error('Delete error:', error);
+        toast.error('Delete failed: ' + (error.response?.data?.message || error.message));
+      }
     }
   };
 
@@ -203,16 +242,19 @@ const Booking = () => {
         notes: formData.notes,
         terms: formData.terms,
         lead: selectedLead._id,
+        sendEmail: formData.sendEmail || false,
       };
-      const response = await bookingApi.createQuotation(quotationData);
-      toast.success('Quotation created successfully');
+      
+      await bookingApi.createQuotation(quotationData);
+      
+      if (formData.sendEmail) {
+        toast.success('Quotation created and email sent successfully!');
+      } else {
+        toast.success('Quotation created successfully');
+      }
+      
       setShowQuotationModal(false);
       fetchData();
-      // Optionally send email
-      if (formData.sendEmail) {
-        await bookingApi.sendQuotationEmail(response.data.data._id);
-        toast.success('Email sent successfully');
-      }
     } catch (error) {
       console.error('Quotation error:', error);
       toast.error(error.response?.data?.message || 'Quotation creation failed');
@@ -410,6 +452,13 @@ const Booking = () => {
                             title="Create Receipt"
                           >
                             <FiFile size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteLead(lead._id, lead.guestName)}
+                            className="p-1.5 hover:bg-red-500/10 rounded transition-colors text-gray-400 hover:text-red-500"
+                            title="Delete Lead"
+                          >
+                            <FiTrash2 size={16} />
                           </button>
                         </div>
                       </td>
@@ -747,63 +796,8 @@ const Booking = () => {
       <Modal isOpen={showProfileModal} onClose={() => setShowProfileModal(false)} title="Booking Profile">
         {selectedLead && (
           <div className="space-y-6 max-h-[80vh] overflow-y-auto">
-            {/* Main Booking Info */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">{selectedLead.bookingNumber ? `Booking #${selectedLead.bookingNumber}` : selectedLead.guestName}</h3>
-                  <p className="text-sm text-gray-600 mt-1">Status: <span className={`font-semibold ${
-                    selectedLead.status === 'Confirmed' ? 'text-green-600' :
-                    selectedLead.status === 'Pending' ? 'text-yellow-600' :
-                    selectedLead.status === 'Cancelled' ? 'text-red-600' : 'text-gray-600'
-                  }`}>{selectedLead.status}</span></p>
-                </div>
-                <span className="px-4 py-2 bg-blue-500 text-white text-sm font-semibold rounded-full">
-                  {selectedLead.rooms || 1} Room{(selectedLead.rooms || 1) > 1 ? 's' : ''}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Property Details */}
-                <div className="space-y-3">
-                  <h5 className="font-semibold text-gray-800 border-b border-blue-300 pb-2">Property Details</h5>
-                  <div className="space-y-2 text-sm">
-                    <p><span className="font-medium text-gray-600">Resort:</span> <span className="text-gray-900">{selectedLead.resort?.name || 'N/A'}</span></p>
-                    <p><span className="font-medium text-gray-600">Room Type:</span> <span className="text-gray-900">{selectedLead.room?.roomType || selectedLead.room?.roomName || 'N/A'}</span></p>
-                    <p><span className="font-medium text-gray-600">Number of Rooms:</span> <span className="text-gray-900">{selectedLead.rooms || 1}</span></p>
-                  </div>
-                </div>
-
-                {/* Stay Details */}
-                <div className="space-y-3">
-                  <h5 className="font-semibold text-gray-800 border-b border-blue-300 pb-2">Stay Details</h5>
-                  <div className="space-y-2 text-sm">
-                    {selectedLead.checkIn && (
-                      <>
-                        <p><span className="font-medium text-gray-600">Check-in:</span> <span className="text-gray-900">{new Date(selectedLead.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></p>
-                        <p><span className="font-medium text-gray-600">Check-out:</span> <span className="text-gray-900">{new Date(selectedLead.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></p>
-                        <p><span className="font-medium text-gray-600">Duration:</span> <span className="text-gray-900">{Math.ceil((new Date(selectedLead.checkOut) - new Date(selectedLead.checkIn)) / (1000 * 60 * 60 * 24))} night{Math.ceil((new Date(selectedLead.checkOut) - new Date(selectedLead.checkIn)) / (1000 * 60 * 60 * 24)) !== 1 ? 's' : ''}</span></p>
-                      </>
-                    )}
-                    <p><span className="font-medium text-gray-600">Meal Plan:</span> <span className="text-gray-900">{selectedLead.mealPlan || 'Not selected'}</span></p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Guest Information */}
-              <div className="mt-4 pt-4 border-t border-blue-300">
-                <h5 className="font-semibold text-gray-800 mb-3">Guests</h5>
-                <div className="bg-white rounded-lg p-4 border border-blue-200">
-                  <p className="text-sm text-gray-700">
-                    <span className="font-semibold">{selectedLead.adults || 0}</span> Adult{(selectedLead.adults || 0) !== 1 ? 's' : ''}
-                    {selectedLead.children > 0 && <>, <span className="font-semibold">{selectedLead.children}</span> Child{selectedLead.children !== 1 ? 'ren' : ''}</>}
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Primary Guest Information */}
-            <div className="bg-white border-2 border-gray-200 rounded-xl p-6">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Primary Guest Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-3">
@@ -830,116 +824,258 @@ const Booking = () => {
                 <div className="flex items-center gap-3">
                   <FiMapPin className="text-blue-500" />
                   <div>
-                    <p className="text-xs text-gray-500">Source</p>
-                    <p className="text-sm font-medium text-gray-900">{selectedLead.source}</p>
+                    <p className="text-xs text-gray-500">Status</p>
+                    <span className={`text-sm font-semibold ${
+                      selectedLead.status === 'Confirmed' ? 'text-green-600' :
+                      selectedLead.status === 'Pending' ? 'text-yellow-600' :
+                      selectedLead.status === 'Cancelled' ? 'text-red-600' : 'text-gray-600'
+                    }`}>{selectedLead.status}</span>
                   </div>
                 </div>
               </div>
               {selectedLead.specialRequests && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="mt-4 pt-4 border-t border-blue-200">
                   <p className="text-xs text-gray-500 mb-1">Special Requests</p>
-                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedLead.specialRequests}</p>
-                </div>
-              )}
-              {selectedLead.notes && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-xs text-gray-500 mb-1">Notes</p>
-                  <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedLead.notes}</p>
+                  <p className="text-sm text-gray-700 bg-white p-3 rounded-lg">{selectedLead.specialRequests}</p>
                 </div>
               )}
             </div>
 
-            {/* Passenger Details */}
-            {selectedLead.passengerDetails && selectedLead.passengerDetails.length > 0 && (
-              <div className="bg-white border-2 border-purple-200 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">All Passengers Details</h3>
-                <div className="space-y-6">
-                  {selectedLead.passengerDetails.map((room, roomIdx) => (
-                    <div key={roomIdx} className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                      <h4 className="text-md font-semibold text-purple-700 mb-3">Room {room.roomNumber || roomIdx + 1}</h4>
-
-                      {/* Adults */}
-                      {room.adults && room.adults.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                            <span className="mr-2">👤</span> Adults ({room.adults.length})
-                          </h5>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {room.adults.map((adult, adultIdx) => (
-                              <div key={adultIdx} className="bg-white rounded p-3 border border-purple-100">
-                                <p className="text-xs font-semibold text-purple-600 mb-1">Adult {adultIdx + 1}</p>
-                                <div className="space-y-1 text-xs">
-                                  <p><span className="font-medium">Name:</span> {adult.name || 'N/A'}</p>
-                                  <p><span className="font-medium">Passport:</span> {adult.passport || 'N/A'}</p>
-                                  <p><span className="font-medium">Country:</span> {adult.country || 'N/A'}</p>
-                                  {adult.arrivalFlightNumber && (
-                                    <>
-                                      <p className="text-xs font-semibold text-green-600 mt-1">Arrival</p>
-                                      <p><span className="font-medium">Flight:</span> {adult.arrivalFlightNumber} at {adult.arrivalTime}</p>
-                                    </>
-                                  )}
-                                  {adult.departureFlightNumber && (
-                                    <>
-                                      <p className="text-xs font-semibold text-orange-600 mt-1">Departure</p>
-                                      <p><span className="font-medium">Flight:</span> {adult.departureFlightNumber} at {adult.departureTime}</p>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Children */}
-                      {room.children && room.children.length > 0 && (
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                            <span className="mr-2">👶</span> Children ({room.children.length})
-                          </h5>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {room.children.map((child, childIdx) => (
-                              <div key={childIdx} className="bg-white rounded p-3 border border-purple-100">
-                                <p className="text-xs font-semibold text-blue-600 mb-1">Child {childIdx + 1}</p>
-                                <div className="space-y-1 text-xs">
-                                  <p><span className="font-medium">Name:</span> {child.name || 'N/A'}</p>
-                                  <p><span className="font-medium">Age:</span> {child.age || 'N/A'}</p>
-                                  <p><span className="font-medium">Passport:</span> {child.passport || 'N/A'}</p>
-                                  <p><span className="font-medium">Country:</span> {child.country || 'N/A'}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+            {/* All Bookings with Details */}
+            {selectedLead.savedBookings && selectedLead.savedBookings.length > 0 && (
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold text-gray-800">All Bookings ({selectedLead.savedBookings.length})</h3>
+                {selectedLead.savedBookings.map((booking, bookingIdx) => (
+                  <div key={bookingIdx} className="bg-white border-2 border-purple-200 rounded-xl p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="text-lg font-bold text-purple-700">Booking {bookingIdx + 1}</h4>
+                      <span className="px-3 py-1 bg-purple-500 text-white text-xs font-semibold rounded-full">
+                        {booking.totalRooms || 1} Room{(booking.totalRooms || 1) > 1 ? 's' : ''}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Payment Details */}
-            {selectedLead.totalAmount && (
-              <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment Details</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
-                    <p className="text-2xl font-bold text-green-600">${selectedLead.totalAmount?.toLocaleString() || 0}</p>
-                    <p className="text-xs text-gray-600">Total Amount</p>
+                    {/* Resort Details */}
+                    <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                      <h5 className="text-md font-semibold text-green-800 mb-3">🏨 Resort Details</h5>
+                      <div className="space-y-2 text-sm">
+                        <p><span className="font-medium text-gray-700">Name:</span> <span className="text-gray-900 font-semibold">{booking.resortName}</span></p>
+                        {booking.resortLocation && (
+                          <p><span className="font-medium text-gray-700">📍 Location:</span> <span className="text-gray-900">{booking.resortLocation}</span></p>
+                        )}
+                        {booking.resortStarRating && (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-700">Rating:</span>
+                            <div className="flex text-yellow-400">
+                              {[...Array(5)].map((_, i) => (
+                                <svg key={i} className={`w-4 h-4 ${i < booking.resortStarRating ? 'fill-current' : 'fill-gray-300'}`} viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {booking.resortDescription && (
+                          <div className="mt-2">
+                            <p className="font-medium text-gray-700 mb-1">Description:</p>
+                            <p className="text-gray-600 text-xs bg-white p-2 rounded border border-green-100">{booking.resortDescription}</p>
+                          </div>
+                        )}
+                        {booking.resortAmenities && booking.resortAmenities.length > 0 && (
+                          <div className="mt-2">
+                            <p className="font-medium text-gray-700 mb-1">Amenities:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {booking.resortAmenities.map((amenity, idx) => (
+                                <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full border border-green-200">
+                                  {amenity}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {booking.resortImages && booking.resortImages.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-gray-600 mb-2">Resort Photos ({booking.resortImages.length})</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {booking.resortImages.slice(0, 8).map((img, idx) => (
+                                <div key={idx} className="relative group">
+                                  <img
+                                    src={img}
+                                    alt={`Resort ${idx + 1}`}
+                                    className="w-full h-16 object-cover rounded border border-green-300 hover:border-green-500 transition-all cursor-pointer"
+                                    onClick={() => window.open(img, '_blank')}
+                                  />
+                                  {idx === 7 && booking.resortImages.length > 8 && (
+                                    <div className="absolute inset-0 bg-black bg-opacity-50 rounded flex items-center justify-center text-white text-xs font-bold">
+                                      +{booking.resortImages.length - 8}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Room Details */}
+                    <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h5 className="text-md font-semibold text-blue-800 mb-3">🛏️ Room Details</h5>
+                      <div className="space-y-2 text-sm">
+                        <p><span className="font-medium text-gray-700">Name:</span> <span className="text-gray-900 font-semibold">{booking.roomName}</span></p>
+                        {booking.roomType && (
+                          <p><span className="font-medium text-gray-700">Type:</span> <span className="text-gray-900">{booking.roomType}</span></p>
+                        )}
+                        <p><span className="font-medium text-gray-700">Total Rooms Booked:</span> <span className="text-gray-900">{booking.totalRooms || 1}</span></p>
+                        {booking.roomSize && (
+                          <p><span className="font-medium text-gray-700">📏 Size:</span> <span className="text-gray-900">{booking.roomSize} sq m</span></p>
+                        )}
+                        {booking.roomBedType && (
+                          <p><span className="font-medium text-gray-700">🛏️ Bed Type:</span> <span className="text-gray-900">{booking.roomBedType}</span></p>
+                        )}
+                        {(booking.roomMaxAdults || booking.roomMaxChildren) && (
+                          <p><span className="font-medium text-gray-700">👥 Capacity:</span> <span className="text-gray-900">
+                            Up to {booking.roomMaxAdults} Adult{booking.roomMaxAdults !== 1 ? 's' : ''}{booking.roomMaxChildren > 0 && `, ${booking.roomMaxChildren} Child${booking.roomMaxChildren !== 1 ? 'ren' : ''}`}
+                          </span></p>
+                        )}
+                        {booking.roomDescription && (
+                          <div className="mt-2">
+                            <p className="font-medium text-gray-700 mb-1">Description:</p>
+                            <p className="text-gray-600 text-xs bg-white p-2 rounded border border-blue-100">{booking.roomDescription}</p>
+                          </div>
+                        )}
+                        {booking.roomAmenities && booking.roomAmenities.length > 0 && (
+                          <div className="mt-2">
+                            <p className="font-medium text-gray-700 mb-1">Room Amenities:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {booking.roomAmenities.map((amenity, idx) => (
+                                <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full border border-blue-200">
+                                  {amenity}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {booking.roomImages && booking.roomImages.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-gray-600 mb-2">Room Photos ({booking.roomImages.length})</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {booking.roomImages.slice(0, 8).map((img, idx) => (
+                                <div key={idx} className="relative group">
+                                  <img
+                                    src={img}
+                                    alt={`Room ${idx + 1}`}
+                                    className="w-full h-16 object-cover rounded border border-blue-300 hover:border-blue-500 transition-all cursor-pointer"
+                                    onClick={() => window.open(img, '_blank')}
+                                  />
+                                  {idx === 7 && booking.roomImages.length > 8 && (
+                                    <div className="absolute inset-0 bg-black bg-opacity-50 rounded flex items-center justify-center text-white text-xs font-bold">
+                                      +{booking.roomImages.length - 8}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stay Details */}
+                    <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h5 className="text-md font-semibold text-yellow-800 mb-3">📅 Stay Details</h5>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-600">Check-in</p>
+                          <p className="font-semibold text-gray-900">{new Date(booking.checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Check-out</p>
+                          <p className="font-semibold text-gray-900">{new Date(booking.checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Duration</p>
+                          <p className="font-semibold text-gray-900">{Math.ceil((new Date(booking.checkOut) - new Date(booking.checkIn)) / (1000 * 60 * 60 * 24))} night(s)</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-600">Meal Plan</p>
+                          <p className="font-semibold text-gray-900">{booking.mealPlan || 'Not specified'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Room Configurations */}
+                    {booking.roomConfigs && booking.roomConfigs.length > 0 && (
+                      <div className="mb-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <h5 className="text-md font-semibold text-orange-800 mb-3">👥 Guest Configuration</h5>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {booking.roomConfigs.map((config, idx) => (
+                            <div key={idx} className="bg-white rounded p-3 border border-orange-200 text-sm">
+                              <p className="font-semibold text-gray-700 mb-1">Room {idx + 1}</p>
+                              <p className="text-gray-600">{config.adults} Adult(s), {config.children} Child(ren)</p>
+                              {config.children > 0 && config.childrenAges && config.childrenAges.length > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">Ages: {config.childrenAges.filter(age => age !== undefined && age !== null).join(', ')}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-orange-200">
+                          <p className="text-sm font-semibold text-orange-800">
+                            Total: {booking.totalAdults} Adult(s), {booking.totalChildren} Child(ren)
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Passenger Details for This Booking */}
+                    {selectedLead.passengerDetails && selectedLead.passengerDetails.filter(p => p.bookingIndex === bookingIdx).length > 0 && (
+                      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <h5 className="text-md font-semibold text-indigo-800 mb-3">✈️ Guest Details for Booking {bookingIdx + 1}</h5>
+                        <div className="space-y-4">
+                          {selectedLead.passengerDetails.filter(p => p.bookingIndex === bookingIdx).map((room, roomIdx) => (
+                            <div key={roomIdx} className="bg-white rounded-lg p-3 border border-indigo-200">
+                              <h6 className="text-sm font-semibold text-indigo-700 mb-2">Room {room.roomNumber}</h6>
+
+                              {/* Adults */}
+                              {room.adults && room.adults.length > 0 && (
+                                <div className="mb-3">
+                                  <p className="text-xs font-medium text-gray-700 mb-2">👤 Adults ({room.adults.length})</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {room.adults.map((adult, adultIdx) => (
+                                      <div key={adultIdx} className="bg-indigo-50 rounded p-2 text-xs">
+                                        <p className="font-semibold text-indigo-600">Adult {adultIdx + 1}</p>
+                                        <p><span className="font-medium">Name:</span> {adult.name || 'N/A'}</p>
+                                        <p><span className="font-medium">Passport:</span> {adult.passport || 'N/A'}</p>
+                                        <p><span className="font-medium">Country:</span> {adult.country || 'N/A'}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Children */}
+                              {room.children && room.children.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-gray-700 mb-2">👶 Children ({room.children.length})</p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {room.children.map((child, childIdx) => (
+                                      <div key={childIdx} className="bg-blue-50 rounded p-2 text-xs">
+                                        <p className="font-semibold text-blue-600">Child {childIdx + 1}</p>
+                                        <p><span className="font-medium">Name:</span> {child.name || 'N/A'}</p>
+                                        <p><span className="font-medium">Age:</span> {child.age !== undefined && child.age !== null ? child.age : 'N/A'}</p>
+                                        <p><span className="font-medium">Passport:</span> {child.passport || 'N/A'}</p>
+                                        <p><span className="font-medium">Country:</span> {child.country || 'N/A'}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
-                    <p className="text-2xl font-bold text-green-600">${selectedLead.paidAmount?.toLocaleString() || 0}</p>
-                    <p className="text-xs text-gray-600">Paid</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
-                    <p className="text-2xl font-bold text-red-600">${selectedLead.balance?.toLocaleString() || 0}</p>
-                    <p className="text-xs text-gray-600">Balance</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-green-200 text-center">
-                    <p className="text-2xl font-bold text-blue-600">{selectedLead.status || 'Pending'}</p>
-                    <p className="text-xs text-gray-600">Status</p>
-                  </div>
-                </div>
+                ))}
               </div>
             )}
             
@@ -954,17 +1090,11 @@ const Booking = () => {
 
       {/* Edit Modal */}
       <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Booking Details">
-        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Booking Information Summary */}
+        <form onSubmit={handleEditSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Primary Guest Information */}
           <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-800 mb-2">Booking Information</h4>
-            <p className="text-sm text-gray-700">Editing: <span className="font-bold">{formData.bookingNumber || formData.guestName}</span></p>
-          </div>
-
-          {/* Contact Information */}
-          <div className="bg-white border border-gray-200 p-4 rounded-lg">
-            <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-              <FiUser className="mr-2 text-blue-500" /> Primary Guest Information
+            <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+              <FiUser className="mr-2" /> Primary Guest Information
             </h4>
             <div className="space-y-3">
               <Input
@@ -989,7 +1119,83 @@ const Booking = () => {
             </div>
           </div>
 
-          {/* Property & Stay Details */}
+          {/* All Bookings with Complete Details (Read-Only Display) */}
+          {selectedLead?.savedBookings && selectedLead.savedBookings.length > 0 && (
+            <div className="space-y-4">
+              <h4 className="text-md font-bold text-gray-800">All Bookings ({selectedLead.savedBookings.length})</h4>
+              {selectedLead.savedBookings.map((booking, bookingIdx) => (
+                <div key={bookingIdx} className="bg-white border-2 border-purple-200 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <h5 className="text-sm font-bold text-purple-700">Booking {bookingIdx + 1}</h5>
+                    <span className="px-2 py-1 bg-purple-500 text-white text-xs font-semibold rounded-full">
+                      {booking.totalRooms || 1} Room{(booking.totalRooms || 1) > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {/* Resort Details */}
+                  <div className="mb-3 bg-green-50 border border-green-200 rounded p-3">
+                    <h6 className="text-xs font-semibold text-green-800 mb-2">🏨 Resort Details</h6>
+                    <div className="space-y-1 text-xs">
+                      <p><span className="font-medium">Name:</span> {booking.resortName}</p>
+                      {booking.resortLocation && <p><span className="font-medium">Location:</span> {booking.resortLocation}</p>}
+                      {booking.resortStarRating && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Rating:</span>
+                          <div className="flex text-yellow-400">
+                            {[...Array(5)].map((_, i) => (
+                              <svg key={i} className={`w-3 h-3 ${i < booking.resortStarRating ? 'fill-current' : 'fill-gray-300'}`} viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {booking.resortImages && booking.resortImages.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs mb-1">Photos ({booking.resortImages.length})</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {booking.resortImages.slice(0, 4).map((img, idx) => (
+                              <img key={idx} src={img} alt={`Resort ${idx + 1}`} className="w-full h-10 object-cover rounded cursor-pointer" onClick={() => window.open(img, '_blank')} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Room Details */}
+                  <div className="mb-3 bg-blue-50 border border-blue-200 rounded p-3">
+                    <h6 className="text-xs font-semibold text-blue-800 mb-2">🛏️ Room Details</h6>
+                    <div className="space-y-1 text-xs">
+                      <p><span className="font-medium">Name:</span> {booking.roomName}</p>
+                      {booking.roomType && <p><span className="font-medium">Type:</span> {booking.roomType}</p>}
+                      {booking.roomSize && <p><span className="font-medium">Size:</span> {booking.roomSize} sq m</p>}
+                      {booking.roomBedType && <p><span className="font-medium">Bed:</span> {booking.roomBedType}</p>}
+                      {booking.roomImages && booking.roomImages.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs mb-1">Photos ({booking.roomImages.length})</p>
+                          <div className="grid grid-cols-4 gap-1">
+                            {booking.roomImages.slice(0, 4).map((img, idx) => (
+                              <img key={idx} src={img} alt={`Room ${idx + 1}`} className="w-full h-10 object-cover rounded cursor-pointer" onClick={() => window.open(img, '_blank')} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stay & Guest Details */}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs">
+                    <p><span className="font-medium">Dates:</span> {new Date(booking.checkIn).toLocaleDateString()} - {new Date(booking.checkOut).toLocaleDateString()}</p>
+                    <p><span className="font-medium">Meal:</span> {booking.mealPlan}</p>
+                    <p><span className="font-medium">Guests:</span> {booking.totalAdults} Adult(s), {booking.totalChildren} Child(ren)</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Property & Stay Details - Editable */}
           <div className="bg-white border border-gray-200 p-4 rounded-lg">
             <h4 className="font-semibold text-gray-800 mb-3">Property & Stay Details</h4>
             <div className="space-y-3">
@@ -1029,7 +1235,7 @@ const Booking = () => {
             </div>
           </div>
 
-          {/* Guest Configuration */}
+          {/* Guest Configuration - Editable */}
           <div className="bg-white border border-gray-200 p-4 rounded-lg">
             <h4 className="font-semibold text-gray-800 mb-3">Guest Configuration</h4>
             <div className="grid grid-cols-3 gap-3">
@@ -1064,7 +1270,130 @@ const Booking = () => {
             </div>
           </div>
 
-          {/* Payment Details */}
+          {/* Passenger Details - Editable for all rooms */}
+          {selectedLead?.passengerDetails && selectedLead.passengerDetails.length > 0 && (
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-300 p-4 rounded-lg">
+              <h4 className="font-semibold text-purple-800 mb-4 flex items-center">
+                <FiUsers className="mr-2" /> All Passengers Information (Editable)
+              </h4>
+              {selectedLead.passengerDetails.map((room, roomIdx) => (
+                <div key={roomIdx} className="mb-4 bg-white p-4 rounded-lg border border-purple-200">
+                  <h5 className="text-sm font-bold text-purple-700 mb-3">Room {room.roomNumber} Passengers</h5>
+                  
+                  {/* Adults */}
+                  {room.adults && room.adults.length > 0 && (
+                    <div className="mb-3">
+                      <h6 className="text-xs font-semibold text-gray-700 mb-2">Adults ({room.adults.length})</h6>
+                      {room.adults.map((adult, adultIdx) => (
+                        <div key={adultIdx} className="mb-3 p-3 bg-blue-50 rounded border border-blue-200">
+                          <p className="text-xs font-semibold text-blue-800 mb-2">Adult {adultIdx + 1}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              label="Full Name"
+                              value={adult.name || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].adults[adultIdx].name = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                            <Input
+                              label="Passport Number"
+                              value={adult.passport || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].adults[adultIdx].passport = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                            <Input
+                              label="Country"
+                              value={adult.country || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].adults[adultIdx].country = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                            <Input
+                              label="Flight Number"
+                              value={adult.flightNumber || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].adults[adultIdx].flightNumber = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Children */}
+                  {room.children && room.children.length > 0 && (
+                    <div className="mb-3">
+                      <h6 className="text-xs font-semibold text-gray-700 mb-2">Children ({room.children.length})</h6>
+                      {room.children.map((child, childIdx) => (
+                        <div key={childIdx} className="mb-3 p-3 bg-green-50 rounded border border-green-200">
+                          <p className="text-xs font-semibold text-green-800 mb-2">Child {childIdx + 1}</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              label="Full Name"
+                              value={child.name || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].children[childIdx].name = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                            <Input
+                              label="Age"
+                              type="number"
+                              value={child.age || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].children[childIdx].age = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                            <Input
+                              label="Passport Number"
+                              value={child.passport || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].children[childIdx].passport = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                            <Input
+                              label="Country"
+                              value={child.country || ''}
+                              onChange={(e) => {
+                                const newPassengerDetails = [...formData.passengerDetails];
+                                newPassengerDetails[roomIdx].children[childIdx].country = e.target.value;
+                                setFormData({ ...formData, passengerDetails: newPassengerDetails });
+                              }}
+                              className="text-xs"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Payment Details - Editable */}
           <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-300 p-4 rounded-lg">
             <h4 className="font-semibold text-green-800 mb-3">Payment Details</h4>
             <div className="grid grid-cols-2 gap-3">
