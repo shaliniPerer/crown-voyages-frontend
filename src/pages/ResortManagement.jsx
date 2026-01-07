@@ -158,7 +158,9 @@ const ResortManagement = () => {
                 <td className="px-4 py-2 text-gold-500">{r.name}</td>
                 <td className="px-4 py-2">{r.location}</td>
                 <td className="px-4 py-2 flex items-center gap-1">
-                  <FiStar className="text-gold-500" /> {r.starRating}
+                  {[...Array(parseInt(r.starRating) || 0)].map((_, i) => (
+                    <FiStar key={i} className="text-gold-500 fill-current" />
+                  ))}
                 </td>
                 <td className="px-4 py-2">{r.mealPlan}</td>
                 <td className="px-4 py-2">
@@ -182,7 +184,27 @@ const ResortManagement = () => {
           <Input label="Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required />
           <Input label="Location" value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} required />
           <Input label="Description" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
-          <Input label="Star Rating" type="number" min="1" max="5" value={formData.starRating} onChange={e => setFormData({ ...formData, starRating: parseInt(e.target.value) })} />
+          
+          <div>
+            <label className="text-sm text-gray-300 block mb-1">Star Rating</label>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, starRating: star })}
+                  className="focus:outline-none transition-transform hover:scale-110"
+                >
+                  <FiStar
+                    size={24}
+                    className={`${
+                      star <= formData.starRating ? 'text-gold-500 fill-current' : 'text-gray-600'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
           
           <div>
             <label className="text-sm text-gray-300">Meal Plan</label>

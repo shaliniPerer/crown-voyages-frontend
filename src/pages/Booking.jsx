@@ -335,7 +335,7 @@ const Booking = () => {
   };
 
   const tabs = [
-    { id: 'leads', label: 'Bookings' },
+    // { id: 'leads', label: 'Bookings' },
     // { id: 'quotations', label: 'Quotations' },
     // { id: 'bookings', label: 'Bookings' },
   ];
