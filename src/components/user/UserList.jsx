@@ -49,7 +49,7 @@ export const UserList = ({ users = [], onEdit, onDelete, onViewActivity }) => {
                   </Badge>
                 </td>
                 <td>
-                  <Badge variant="green">Active</Badge>
+                  <Badge variant="black">Active</Badge>
                 </td>
                 <td>
                   <div className="flex gap-2">

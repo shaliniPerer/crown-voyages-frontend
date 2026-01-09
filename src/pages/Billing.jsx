@@ -192,7 +192,7 @@ const Billing = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-luxury font-bold text-gold-500">Billing & Documents</h1>
-          <p className="text-gray-400 mt-1">Manage quotations, invoices, receipts</p>
+          <p className="text-gray-900 mt-1">Manage quotations, invoices, receipts</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" icon={FiPrinter} onClick={() => setShowReportModal(true)}>
@@ -229,7 +229,7 @@ const Billing = () => {
       </div>
 
       {/* Search Filters */}
-      <Card className="p-4 bg-gray-800/50 border border-gray-700">
+      <Card className="p-4 bg-white/50 border border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input
             label="Date"

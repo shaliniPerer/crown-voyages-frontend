@@ -456,6 +456,29 @@ const Booking = () => {
     }
   };
 
+  const getStatusBadgeColor = (status) => {
+    const baseClasses = "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border";
+    switch (status) {
+      case 'New':
+        return `${baseClasses} bg-blue-200 text-black border-blue-500`;
+      case 'Quotation':
+        return `${baseClasses} bg-purple-200 text-black border-purple-500`;
+      case 'Invoice':
+        return `${baseClasses} bg-indigo-200 text-black border-indigo-500`;
+      case 'Receipt':
+        return `${baseClasses} bg-pink-200 text-black border-pink-500`;
+      case 'Confirmed':
+        return `${baseClasses} bg-green-200 text-black border-green-500`;
+      case 'Cancelled':
+      case 'Rejected':
+        return `${baseClasses} bg-red-200 text-black border-red-500`;
+      case 'Completed':
+        return `${baseClasses} bg-teal-200 text-black border-teal-500`;
+      default:
+        return `${baseClasses} bg-gray-400 text-black border-gray-500`;
+    }
+  };
+
   const tabs = [
     // { id: 'leads', label: 'Bookings' },
     // { id: 'quotations', label: 'Quotations' },
@@ -468,7 +491,7 @@ const Booking = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-luxury font-bold text-gold-500">Booking Management</h1>
-          <p className="text-gray-400 mt-1">Create & Manage bookings</p>
+          <p className="text-gray-900 mt-1">Create & Manage bookings</p>
         </div>
         <Button
           variant="primary"
@@ -503,7 +526,7 @@ const Booking = () => {
       </div> */}
 
       {/* Search Filters */}
-      <Card className="p-4 bg-gray-800/50 border border-gray-700">
+      <Card className="p-4 bg--white/50 border border-gray-700">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Input
             label="Date"
@@ -596,15 +619,7 @@ const Booking = () => {
                       <td>{lead.phone}</td>
                       <td>{lead.source}</td>
                       <td>
-                        <span className={`badge-${
-                          lead.status === 'New' ? 'blue' :
-                          lead.status === 'Quotation' ? 'purple' :
-                          lead.status === 'Invoice' ? 'pink' :
-                          lead.status === 'Receipt' ? 'green' :
-                          lead.status === 'Confirmed' ? 'green' :
-                          lead.status === 'Cancelled' ? 'red' :
-                          'gold'
-                        }`}>
+                        <span className={getStatusBadgeColor(lead.status)}>
                           {lead.status}
                         </span>
                       </td>

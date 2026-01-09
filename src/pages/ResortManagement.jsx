@@ -184,7 +184,10 @@ const ResortManagement = () => {
     <div className="space-y-6">
       {/* HEADER */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gold-500">Resort Management</h1>
+        <div>
+          <h1 className="text-3xl font-luxury font-bold text-gold-500">Resort Management</h1>
+          <p className="text-gray-900 mt-1">Manage Resorts</p>
+        </div>
         <Button icon={FiPlus} onClick={() => handleOpenModal()}>
           Add Resort
         </Button>

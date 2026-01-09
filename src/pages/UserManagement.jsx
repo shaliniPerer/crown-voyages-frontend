@@ -102,15 +102,16 @@ const UserManagement = () => {
   };
 
   const getRoleBadgeColor = (role) => {
+    const baseClasses = "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border";
     switch (role) {
       case 'Admin':
-        return 'badge-gold';
+        return `${baseClasses} bg-gold-200 text-black border-gold-600`;
       case 'Sales Agent':
-        return 'badge-blue';
+        return `${baseClasses} bg-blue-200 text-black border-blue-500`;
       case 'Finance':
-        return 'badge-green';
+        return `${baseClasses} bg-green-200 text-black border-green-500`;
       default:
-        return 'badge-gold';
+        return `${baseClasses} bg-gold-200 text-black border-gold-600`;
     }
   };
 
@@ -120,7 +121,7 @@ const UserManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-luxury font-bold text-gold-500">User Management</h1>
-          <p className="text-gray-400 mt-1">Manage system users and roles</p>
+          <p className="text-gray-900 mt-1">Manage system users and roles</p>
         </div>
         <Button variant="primary" icon={FiPlus} onClick={() => handleOpenModal()}>
           Add User
@@ -130,17 +131,17 @@ const UserManagement = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <h3 className="text-gray-400 text-sm font-medium mb-2">Total Users</h3>
+          <h3 className="text-gray-900 text-sm font-medium mb-2">Total Users</h3>
           <p className="text-3xl font-bold text-gray-900">{users.length}</p>
         </Card>
         <Card>
-          <h3 className="text-gray-400 text-sm font-medium mb-2">Active Admins</h3>
+          <h3 className="text-gray-900 text-sm font-medium mb-2">Active Admins</h3>
           <p className="text-3xl font-bold text-gold-500">
             {Array.isArray(users) ? users.filter(u => u.role === 'Admin').length : 0}
           </p>
         </Card>
         <Card>
-          <h3 className="text-gray-400 text-sm font-medium mb-2">Sales Agents</h3>
+          <h3 className="text-gray-900 text-sm font-medium mb-2">Sales Agents</h3>
           <p className="text-3xl font-bold text-blue-500">
             {Array.isArray(users) ? users.filter(u => u.role === 'Sales Agent').length : 0}
           </p>
@@ -181,7 +182,13 @@ const UserManagement = () => {
                       </span>
                     </td>
                     <td>
-                      <span className="badge-green">Active</span>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                        user.isActive 
+                          ? "bg-green-200 text-black border-green-500" 
+                          : "bg-red-200 text-black border-red-500"
+                      }`}>
+                        {user.isActive ? "Active" : "Inactive"}
+                      </span>
                     </td>
                     <td>
                       <div className="flex gap-2">

@@ -9,9 +9,10 @@ const Sidebar = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     // { path: '/analytics', label: 'Analytics', icon: FiBarChart2 },
     { path: '/booking', label: 'Booking', icon: FiCalendar },
+    { path: '/billing', label: 'Billing & Invoices', icon: FiFileText },
     { path: '/resorts', label: 'Resort Management', icon: FiMap },
     { path: '/rooms', label: 'Room Management', icon: FiGrid },
-    { path: '/billing', label: 'Billing & Invoices', icon: FiFileText },
+    
   ];
 
   // Add user management for admin only
@@ -23,10 +24,10 @@ const Sidebar = () => {
     <div className="w-64 bg-luxury-dark border-r border-gold-800/30 h-screen sticky top-0 flex-col hidden lg:flex">
       {/* Logo */}
       <div className="px-6 py-8 border-b border-gold-800/30">
-        <h1 className="text-2xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
           Crown Voyages
         </h1>
-        <p className="text-xs text-gray-500 mt-1">Management System</p>
+        <p className="text-lg text-gray-500 mt-1">Management System</p>
       </div>
 
       {/* Navigation */}

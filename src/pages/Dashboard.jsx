@@ -129,7 +129,7 @@ const Dashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-luxury font-bold text-gold-500">Dashboard</h1>
-        <p className="text-gray-400 mt-1">Overview of your resort management system</p>
+        <p className="text-gray-900 mt-1">Overview of your resort management system</p>
       </div>
 
       {/* Metric Cards */}
@@ -186,28 +186,28 @@ const Dashboard = () => {
              </select>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 relative overflow-hidden group hover:border-purple-500/50 transition-colors">
+             <div className="bg-white/50 p-4 rounded-lg border border-gray-700 relative overflow-hidden group hover:border-purple-500/50 transition-colors">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-purple-600 to-purple-500 opacity-5 rounded-bl-full -mr-4 -mt-4"></div>
-                <p className="text-gray-900 text-xs font-uppercase tracking-wider font-medium mb-2">QUOTATIONS</p>
+                <p className="text-gray-900 text-sm font-uppercase tracking-wider font-medium mb-2">QUOTATIONS</p>
                 <div className="flex justify-between items-end relative z-10">
                     <span className="text-2xl font-bold text-purple-400">${(financialStats.quotations?.total || 0).toLocaleString()}</span>
-                    <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-1 rounded-full border border-purple-500/20">{financialStats.quotations?.count || 0} docs</span>
+                    <span className="text-sm bg-purple-300/10 text-purple-900 px-2 py-1 rounded-full border border-purple-500/20">{financialStats.quotations?.count || 0} docs</span>
                 </div>
              </div>
-             <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 relative overflow-hidden group hover:border-pink-500/50 transition-colors">
+             <div className="bg-white/50 p-4 rounded-lg border border-gray-700 relative overflow-hidden group hover:border-pink-500/50 transition-colors">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-pink-600 to-pink-500 opacity-5 rounded-bl-full -mr-4 -mt-4"></div>
-                <p className="text-gray-900 text-xs font-uppercase tracking-wider font-medium mb-2">INVOICES</p>
+                <p className="text-gray-900 text-sm font-uppercase tracking-wider font-medium mb-2">INVOICES</p>
                 <div className="flex justify-between items-end relative z-10">
                     <span className="text-2xl font-bold text-pink-400">${(financialStats.invoices?.total || 0).toLocaleString()}</span>
-                    <span className="text-xs bg-pink-500/10 text-pink-400 px-2 py-1 rounded-full border border-pink-500/20">{financialStats.invoices?.count || 0} docs</span>
+                    <span className="text-sm bg-pink-300/10 text-pink-900 px-2 py-1 rounded-full border border-pink-500/20">{financialStats.invoices?.count || 0} docs</span>
                 </div>
              </div>
-             <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700 relative overflow-hidden group hover:border-green-500/50 transition-colors">
+             <div className="bg-gray-white/50 p-4 rounded-lg border border-gray-700 relative overflow-hidden group hover:border-green-500/50 transition-colors">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-green-600 to-green-500 opacity-5 rounded-bl-full -mr-4 -mt-4"></div>
-                <p className="text-gray-900 text-xs font-uppercase tracking-wider font-medium mb-2">RECEIPTS</p>
+                <p className="text-gray-900 text-sm font-uppercase tracking-wider font-medium mb-2">RECEIPTS</p>
                 <div className="flex justify-between items-end relative z-10">
                     <span className="text-2xl font-bold text-green-400">${(financialStats.receipts?.total || 0).toLocaleString()}</span>
-                    <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded-full border border-green-500/20">{financialStats.receipts?.count || 0} docs</span>
+                    <span className="text-sm bg-green-300/10 text-green-900 px-2 py-1 rounded-full border border-green-500/20">{financialStats.receipts?.count || 0} docs</span>
                 </div>
              </div>
           </div>
@@ -321,7 +321,7 @@ const Dashboard = () => {
         </Card> */}
 
         {/* Booking Status */}
-        <Card title="Booking Distribution" subtitle="Status breakdown" className="lg:col-span-2">
+        <Card title="Booking Distribution"  className="lg:col-span-2">
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -339,7 +339,7 @@ const Dashboard = () => {
                 ))}
               </Pie>
               <Tooltip 
-                contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid #D4AF37' }}
+                contentStyle={{ backgroundColor: 'white', border: '1px solid #D4AF37' }}
               />
             </PieChart>
           </ResponsiveContainer>

@@ -243,7 +243,10 @@ const RoomManagement = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl text-gold-500 font-bold">Room Management</h1>
+        <div>
+          <h1 className="text-3xl font-luxury font-bold text-gold-500">Room Management</h1>
+          <p className="text-gray-900 mt-1"> Manage rooms</p>
+        </div>
         <Button icon={FiPlus} onClick={() => openModal()}>Add Room</Button>
       </div>
 
@@ -252,11 +255,11 @@ const RoomManagement = () => {
         <table className="min-w-full divide-y divide-gray-700">
           <thead>
             <tr>
-              <th className="px-4 py-2 text-left text-gray-400">#</th>
-              <th className="px-4 py-2 text-left text-gray-400">Resort Name</th>
-              <th className="px-4 py-2 text-left text-gray-400">Room Name</th>
-              <th className="px-4 py-2 text-left text-gray-400">Type</th>
-              <th className="px-4 py-2 text-left text-gray-400">Actions</th>
+              <th className="px-4 py-2 text-left text-gray-900">#</th>
+              <th className="px-4 py-2 text-left text-gray-900">Resort Name</th>
+              <th className="px-4 py-2 text-left text-gray-900">Room Name</th>
+              <th className="px-4 py-2 text-left text-gray-900">Type</th>
+              <th className="px-4 py-2 text-left text-gray-900">Actions</th>
             </tr>
           </thead>
           <tbody>
