@@ -78,12 +78,51 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = (val) => {
+    const message = typeof val === 'string' ? val : 'Logged out successfully';
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    toast.info('Logged out successfully');
+    toast.info(message);
   };
+
+  // Auto-logout after 1 hour of inactivity
+  useEffect(() => {
+    if (!user) return;
+
+    const TIMEOUT_DURATION = 60 * 60 * 1000; // 1 hour
+    let logoutTimer;
+
+    const resetTimer = () => {
+      if (logoutTimer) clearTimeout(logoutTimer);
+      logoutTimer = setTimeout(() => {
+        logout('Session expired due to inactivity');
+      }, TIMEOUT_DURATION);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    
+    // Throttle the event listener to improve performance
+    let isThrottled = false;
+    const handleActivity = () => {
+      if (!isThrottled) {
+        resetTimer();
+        isThrottled = true;
+        setTimeout(() => { isThrottled = false; }, 1000);
+      }
+    };
+
+    // Initialize timer
+    resetTimer();
+
+    // Listen for activity
+    events.forEach(event => window.addEventListener(event, handleActivity));
+
+    return () => {
+      if (logoutTimer) clearTimeout(logoutTimer);
+      events.forEach(event => window.removeEventListener(event, handleActivity));
+    };
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
