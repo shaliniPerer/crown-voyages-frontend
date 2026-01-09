@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiFileText, FiMail, FiDollarSign, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiFileText, FiMail, FiDollarSign, FiDownload, FiTrash2, FiPrinter, FiEye } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -17,6 +17,14 @@ const Billing = () => {
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
+  const [reportType, setReportType] = useState('quotation');
+  const [reportPeriod, setReportPeriod] = useState('monthly');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [billingFilters, setBillingFilters] = useState({
+    date: '',
+    docId: '',
+    bookingId: ''
+  });
 
   useEffect(() => {
     fetchData();
@@ -28,10 +36,11 @@ const Billing = () => {
         const res = await bookingApi.getQuotations();
         setQuotations(res.data.data || res.data || []);
       } else if (activeTab === 'invoices') {
-        const res = await billingApi.getInvoices();
+        // Fetch only invoices created from Booking Management
+        const res = await bookingApi.getInvoices();
         setInvoices(res.data.data || res.data || []);
       } else if (activeTab === 'receipts') {
-        // Fetch receipts from bookingApi
+        // Fetch receipts from bookingApi (created in Booking Management)
         const res = await bookingApi.getReceipts?.() || { data: [] };
         setReceipts(res.data.data || res.data || []);
       } else if (activeTab === 'payments') {
@@ -68,6 +77,41 @@ const Billing = () => {
       fetchData();
     } catch (error) {
       toast.error('Operation failed');
+    }
+  };
+
+  const handleDelete = async (id, type) => {
+    if (!window.confirm('Are you sure you want to delete this item?')) return;
+    try {
+      if (type === 'quotation') {
+        await bookingApi.deleteQuotation(id);
+      } else if (type === 'invoice') {
+        await bookingApi.deleteInvoice(id);
+      } else if (type === 'receipt') {
+        await bookingApi.deleteReceipt(id);
+      }
+      toast.success('Deleted successfully');
+      fetchData();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete item');
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    try {
+      const response = await bookingApi.getReport(reportType, reportPeriod);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${reportType}_report_${reportPeriod}.pdf`;
+      link.click();
+      toast.success('Report downloaded successfully');
+      setShowReportModal(false);
+    } catch (error) {
+      console.error('Report error:', error);
+      toast.error('Failed to download report');
     }
   };
 
@@ -115,6 +159,27 @@ const Billing = () => {
     }
   };
 
+  const handleView = async (item, type) => {
+    try {
+      let response;
+      
+      if (type === 'quotation') {
+        response = await bookingApi.exportQuotationPDF(item._id);
+      } else if (type === 'invoice') {
+        response = await bookingApi.exportInvoicePDF(item._id);
+      } else if (type === 'receipt') {
+        response = await bookingApi.exportReceiptPDF(item._id);
+      }
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('View error:', error);
+      toast.error(`Failed to view ${type}`);
+    }
+  };
+
   const tabs = [
     { id: 'quotations', label: 'Quotations' },
     { id: 'invoices', label: 'Invoices' },
@@ -127,14 +192,17 @@ const Billing = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-luxury font-bold text-gold-500">Billing & Documents</h1>
-          <p className="text-gray-400 mt-1">Manage quotations, invoices, receipts, and payments</p>
+          <p className="text-gray-400 mt-1">Manage quotations, invoices, receipts</p>
         </div>
         <div className="flex gap-3">
-          {activeTab === 'invoices' && (
+          <Button variant="outline" icon={FiPrinter} onClick={() => setShowReportModal(true)}>
+            Reports
+          </Button>
+          {/* {activeTab === 'invoices' && (
             <Button variant="primary" icon={FiPlus} onClick={() => handleOpenModal('invoice')}>
               Create Invoice
             </Button>
-          )}
+          )} */}
           {activeTab === 'payments' && (
             <Button variant="primary" icon={FiDollarSign} onClick={() => handleOpenModal('payment')}>
               Record Payment
@@ -160,6 +228,33 @@ const Billing = () => {
         ))}
       </div>
 
+      {/* Search Filters */}
+      <Card className="p-4 bg-gray-800/50 border border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Input
+            label="Date"
+            type="date"
+            value={billingFilters.date}
+            onChange={(e) => setBillingFilters(prev => ({ ...prev, date: e.target.value }))}
+            className="text-sm"
+          />
+          <Input
+            label="Document ID"
+            placeholder="Search Quotation/Invoice/Receipt ID..."
+            value={billingFilters.docId}
+            onChange={(e) => setBillingFilters(prev => ({ ...prev, docId: e.target.value }))}
+            className="text-sm"
+          />
+          <Input
+            label="Booking ID / Lead ID"
+            placeholder="Search Booking/Lead ID..."
+            value={billingFilters.bookingId}
+            onChange={(e) => setBillingFilters(prev => ({ ...prev, bookingId: e.target.value }))}
+            className="text-sm"
+          />
+        </div>
+      </Card>
+
       {/* Quotations Tab */}
       {activeTab === 'quotations' && (
         <Card>
@@ -168,39 +263,66 @@ const Billing = () => {
               <thead>
                 <tr>
                   <th>Quotation ID</th>
+                  <th>Date</th>
+                  <th>Booking Ref</th>
                   <th>Customer</th>
                   <th>Base Price</th>
                   <th>Discount</th>
                   <th>Final Price</th>
                   <th>Valid Until</th>
-                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {quotations.length > 0 ? (
-                  quotations.map((quote) => (
+                {quotations.filter(quote => {
+                  const matchDate = !billingFilters.date || new Date(quote.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                  const docId = quote.quotationNumber || '';
+                  const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                  const bookingRef = quote.lead?.booking?.bookingNumber || quote.lead?.leadNumber || '';
+                  const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                  
+                  return matchDate && matchDocId && matchBookingId;
+                }).length > 0 ? (
+                  quotations.filter(quote => {
+                    const matchDate = !billingFilters.date || new Date(quote.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                    const docId = quote.quotationNumber || '';
+                    const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                    const bookingRef = quote.lead?.booking?.bookingNumber || quote.lead?.leadNumber || '';
+                    const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                    
+                    return matchDate && matchDocId && matchBookingId;
+                  }).map((quote) => (
                     <tr key={quote._id}>
                       <td className="font-mono text-gold-500">{quote.quotationNumber}</td>
+                      <td className="text-gray-400 text-sm">
+                        {new Date(quote.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="font-mono text-gray-300">
+                        {quote.lead?.booking?.bookingNumber || quote.lead?.leadNumber || '-'}
+                      </td>
                       <td className="font-medium text-gray-100">{quote.customerName}</td>
                       <td className="font-semibold">${(quote.amount || 0).toLocaleString()}</td>
                       <td className="text-green-600">-${(quote.discountValue || 0).toLocaleString()}</td>
                       <td className="font-semibold text-gold-500">${(quote.finalAmount || 0).toLocaleString()}</td>
                       <td>{quote.validUntil ? new Date(quote.validUntil).toLocaleDateString() : 'N/A'}</td>
-                      <td>
-                        <span className={`badge-${quote.status === 'Accepted' ? 'green' : quote.status === 'Rejected' ? 'red' : 'gold'}`}>
-                          {quote.status || 'Draft'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex gap-2">
-                          <Button variant="outline" size="small" icon={FiFileText} onClick={() => handleExportPDF(quote._id, 'quotation')}>
-                            PDF
-                          </Button>
-                          <Button variant="outline" size="small" icon={FiMail} onClick={() => handleSendEmail(quote._id, 'quotation')}>
-                            Send
-                          </Button>
-                        </div>
+                      <td className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiEye}
+                          onClick={() => handleView(quote, 'quotation')}
+                          title="View PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiDownload}
+                          onClick={() => handleExportPDF(quote._id, 'quotation')}
+                          title="Download PDF"
+                        />
+                        <Button variant="outline" size="small" icon={FiTrash2} onClick={() => handleDelete(quote._id, 'quotation')}>
+                          Delete
+                        </Button>
                       </td>
                     </tr>
                   ))
@@ -225,52 +347,70 @@ const Billing = () => {
               <thead>
                 <tr>
                   <th>Invoice ID</th>
+                  <th>Date</th>
+                  <th>Booking Ref</th>
                   <th>Customer</th>
                   <th>Base Price</th>
                   <th>Discount</th>
                   <th>Final Price</th>
                   <th>Due Date</th>
-                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {invoices.length > 0 ? (
-                  invoices.map((invoice) => (
+                {invoices.filter(invoice => {
+                  const matchDate = !billingFilters.date || new Date(invoice.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                  const docId = invoice.invoiceNumber || '';
+                  const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                  const bookingRef = invoice.lead?.booking?.bookingNumber || invoice.lead?.leadNumber || '';
+                  const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                  
+                  return matchDate && matchDocId && matchBookingId;
+                }).length > 0 ? (
+                  invoices.filter(invoice => {
+                    const matchDate = !billingFilters.date || new Date(invoice.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                    const docId = invoice.invoiceNumber || '';
+                    const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                    const bookingRef = invoice.lead?.booking?.bookingNumber || invoice.lead?.leadNumber || '';
+                    const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                    
+                    return matchDate && matchDocId && matchBookingId;
+                  }).map((invoice) => (
                     <tr key={invoice._id}>
                       <td className="font-mono text-gold-500">{invoice.invoiceNumber}</td>
+                      <td className="text-gray-400 text-sm">
+                        {new Date(invoice.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="font-mono text-gray-300">
+                        {invoice.lead?.booking?.bookingNumber || invoice.lead?.leadNumber || '-'}
+                      </td>
                       <td className="font-medium text-gray-100">{invoice.customerName}</td>
                       <td className="font-semibold">${(invoice.amount || 0).toLocaleString()}</td>
                       <td className="text-green-600">-${(invoice.discountValue || 0).toLocaleString()}</td>
                       <td className="font-semibold text-gold-500">${(invoice.finalAmount || 0).toLocaleString()}</td>
                       <td>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</td>
-                      <td>
-                        <span className={`badge-${
-                          invoice.status === 'Paid' ? 'green' : 
-                          invoice.status === 'Overdue' ? 'red' : 'gold'
-                        }`}>
-                          {invoice.status || 'Draft'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="small"
-                            icon={FiFileText}
-                            onClick={() => handleExportPDF(invoice._id, 'invoice')}
-                          >
-                            PDF
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="small"
-                            icon={FiMail}
-                            onClick={() => handleSendEmail(invoice._id, 'invoice')}
-                          >
-                            Send
-                          </Button>
-                        </div>
+                      <td className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiEye}
+                          onClick={() => handleView(invoice, 'invoice')}
+                          title="View PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiDownload}
+                          onClick={() => handleExportPDF(invoice._id, 'invoice')}
+                          title="Download PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiTrash2}
+                          onClick={() => handleDelete(invoice._id, 'invoice')}
+                          title="Delete"
+                        />
                       </td>
                     </tr>
                   ))
@@ -295,49 +435,70 @@ const Billing = () => {
               <thead>
                 <tr>
                   <th>Receipt ID</th>
+                  <th>Date</th>
+                  <th>Booking Ref</th>
                   <th>Customer</th>
                   <th>Base Price</th>
                   <th>Discount</th>
                   <th>Final Price</th>
                   <th>Payment Method</th>
-                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {receipts.length > 0 ? (
-                  receipts.map((receipt) => (
+                {receipts.filter(receipt => {
+                  const matchDate = !billingFilters.date || new Date(receipt.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                  const docId = receipt.receiptNumber || '';
+                  const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                  const bookingRef = receipt.lead?.booking?.bookingNumber || receipt.lead?.leadNumber || '';
+                  const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                  
+                  return matchDate && matchDocId && matchBookingId;
+                }).length > 0 ? (
+                  receipts.filter(receipt => {
+                    const matchDate = !billingFilters.date || new Date(receipt.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                    const docId = receipt.receiptNumber || '';
+                    const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                    const bookingRef = receipt.lead?.booking?.bookingNumber || receipt.lead?.leadNumber || '';
+                    const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                    
+                    return matchDate && matchDocId && matchBookingId;
+                  }).map((receipt) => (
                     <tr key={receipt._id}>
                       <td className="font-mono text-gold-500">{receipt.receiptNumber}</td>
+                      <td className="text-gray-400 text-sm">
+                        {new Date(receipt.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="font-mono text-gray-300">
+                        {receipt.lead?.booking?.bookingNumber || receipt.lead?.leadNumber || '-'}
+                      </td>
                       <td className="font-medium text-gray-100">{receipt.customerName}</td>
                       <td className="font-semibold">${(receipt.amount || 0).toLocaleString()}</td>
                       <td className="text-green-600">-${(receipt.discountValue || 0).toLocaleString()}</td>
                       <td className="font-semibold text-gold-500">${(receipt.finalAmount || 0).toLocaleString()}</td>
                       <td>{receipt.paymentMethod || 'Cash'}</td>
-                      <td>
-                        <span className="badge-green">
-                          {receipt.status || 'Received'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="small"
-                            icon={FiFileText}
-                            onClick={() => handleExportPDF(receipt._id, 'receipt')}
-                          >
-                            PDF
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="small"
-                            icon={FiMail}
-                            onClick={() => handleSendEmail(receipt._id, 'receipt')}
-                          >
-                            Send
-                          </Button>
-                        </div>
+                      <td className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiEye}
+                          onClick={() => handleView(receipt, 'receipt')}
+                          title="View PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiDownload}
+                          onClick={() => handleExportPDF(receipt._id, 'receipt')}
+                          title="Download PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiTrash2}
+                          onClick={() => handleDelete(receipt._id, 'receipt')}
+                          title="Delete"
+                        />
                       </td>
                     </tr>
                   ))
@@ -463,6 +624,45 @@ const Billing = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal isOpen={showReportModal} onClose={() => setShowReportModal(false)} title="Generate Report">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Report Type</label>
+            <select
+              className="input-luxury w-full"
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value)}
+            >
+              <option value="quotation">Quotations</option>
+              <option value="invoice">Invoices</option>
+              <option value="receipt">Receipts</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Period</label>
+            <select
+              className="input-luxury w-full"
+              value={reportPeriod}
+              onChange={(e) => setReportPeriod(e.target.value)}
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="annually">Annually</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-4">
+            <Button onClick={handleDownloadReport} variant="primary" className="flex-1" icon={FiDownload}>
+              Download PDF
+            </Button>
+            <Button onClick={() => setShowReportModal(false)} variant="outline" className="flex-1">
+              Cancel
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

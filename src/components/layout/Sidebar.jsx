@@ -7,7 +7,7 @@ const Sidebar = () => {
 
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
-    { path: '/analytics', label: 'Analytics', icon: FiBarChart2 },
+    // { path: '/analytics', label: 'Analytics', icon: FiBarChart2 },
     { path: '/booking', label: 'Booking', icon: FiCalendar },
     { path: '/resorts', label: 'Resort Management', icon: FiMap },
     { path: '/rooms', label: 'Room Management', icon: FiGrid },
@@ -24,7 +24,7 @@ const Sidebar = () => {
       {/* Logo */}
       <div className="px-6 py-8 border-b border-gold-800/30">
         <h1 className="text-2xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
-          Resort Luxury
+          Crown Voyages
         </h1>
         <p className="text-xs text-gray-500 mt-1">Management System</p>
       </div>

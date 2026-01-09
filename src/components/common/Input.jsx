@@ -25,7 +25,7 @@ const Input = ({
   return (
     <div className={`w-full ${className}`}>
       {label && (
-        <label htmlFor={inputId} className="block text-sm font-medium text-gray-300 mb-2">
+        <label htmlFor={inputId} className="block text-sm font-medium text-gray-900 mb-2">
           {label} {required && <span className="text-gold-500">*</span>}
         </label>
       )}

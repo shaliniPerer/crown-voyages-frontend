@@ -5,6 +5,7 @@ import { roomApi } from '../api/roomApi';
 import { resortApi } from '../api/resortApi';
 import { uploadApi } from '../api/uploadApi';
 import Button from '../components/common/Button';
+import Card from '../components/common/Card';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 
@@ -17,6 +18,7 @@ const RoomManagement = () => {
   const [editingRoom, setEditingRoom] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
+
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
 
@@ -87,6 +89,8 @@ const RoomManagement = () => {
         newAvailability: { startDate: '', endDate: '' },
         images: room.images || [],
       });
+
+      setImageFiles([]);                 // ✅ ADDED (important)
       setImagePreviews(room.images || []);
     } else {
       setEditingRoom(null);
@@ -129,10 +133,12 @@ const RoomManagement = () => {
       amenityInput: '',
     }));
   };
-  const removeAmenity = i => setFormData(f => ({
-    ...f,
-    amenities: f.amenities.filter((_, idx) => idx !== i),
-  }));
+
+  const removeAmenity = i =>
+    setFormData(f => ({
+      ...f,
+      amenities: f.amenities.filter((_, idx) => idx !== i),
+    }));
 
   /* ---------------- TRANSPORTATION ---------------- */
   const addTransportation = () => {
@@ -144,10 +150,12 @@ const RoomManagement = () => {
       newTransportMethod: '',
     }));
   };
-  const removeTransportation = i => setFormData(f => ({
-    ...f,
-    transportations: f.transportations.filter((_, idx) => idx !== i),
-  }));
+
+  const removeTransportation = i =>
+    setFormData(f => ({
+      ...f,
+      transportations: f.transportations.filter((_, idx) => idx !== i),
+    }));
 
   /* ---------------- AVAILABILITY ---------------- */
   const addAvailability = () => {
@@ -159,36 +167,45 @@ const RoomManagement = () => {
       newAvailability: { startDate: '', endDate: '' },
     }));
   };
-  const removeAvailability = i => setFormData(f => ({
-    ...f,
-    availabilityCalendar: f.availabilityCalendar.filter((_, idx) => idx !== i),
-  }));
 
-  /* ---------------- IMAGES ---------------- */
-  const handleImageChange = e => {
+  const removeAvailability = i =>
+    setFormData(f => ({
+      ...f,
+      availabilityCalendar: f.availabilityCalendar.filter((_, idx) => idx !== i),
+    }));
+
+  /* ---------------- IMAGES (FIXED ONLY HERE) ---------------- */
+  const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    setImageFiles(files);
-    const newPreviews = files.map(f => URL.createObjectURL(f));
-    setImagePreviews([...formData.images, ...newPreviews]);
+
+    // ✅ FIX: append instead of replace
+    setImageFiles(prev => [...prev, ...files]);
+
+    const previews = files.map(file => URL.createObjectURL(file));
+    setImagePreviews(prev => [...prev, ...previews]);
   };
 
   /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      let imageUrls = formData.images;
+      let imageUrls = [...formData.images];   // ✅ FIX (clone)
+
       if (imageFiles.length > 0) {
         const fd = new FormData();
         imageFiles.forEach(f => fd.append('images', f));
         fd.append('folder', 'rooms');
+
         const token = localStorage.getItem('token');
         const res = await fetch('http://localhost:5000/api/upload/images', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
-          body: fd
+          body: fd,
         });
+
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Upload failed');
+
         imageUrls = [...imageUrls, ...data.data.urls];
       }
 
@@ -205,6 +222,7 @@ const RoomManagement = () => {
         await roomApi.createRoom(payload);
         toast.success('Room created');
       }
+
       setShowModal(false);
       setImageFiles([]);
       setImagePreviews([]);
@@ -230,35 +248,39 @@ const RoomManagement = () => {
       </div>
 
       {/* Rooms Table */}
-      <table className="w-full table-auto border border-gray-700 text-left">
-        <thead>
-          <tr className="bg-gray-800 text-gray-200">
-            <th className="px-3 py-2 border">Resort</th>
-            <th className="px-3 py-2 border">Room Name</th>
-            <th className="px-3 py-2 border">Type</th>
-            <th className="px-3 py-2 border">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rooms.length === 0 && (
+      <Card>
+        <table className="min-w-full divide-y divide-gray-700">
+          <thead>
             <tr>
-              <td colSpan="4" className="text-center p-4">No rooms found</td>
+              <th className="px-4 py-2 text-left text-gray-400">#</th>
+              <th className="px-4 py-2 text-left text-gray-400">Resort Name</th>
+              <th className="px-4 py-2 text-left text-gray-400">Room Name</th>
+              <th className="px-4 py-2 text-left text-gray-400">Type</th>
+              <th className="px-4 py-2 text-left text-gray-400">Actions</th>
             </tr>
-          )}
-          {rooms.map(room => (
-            <tr key={room._id} className="hover:bg-gray-700">
-              <td className="px-3 py-2 border">{room.resort?.name || 'Unknown'}</td>
-              <td className="px-3 py-2 border">{room.roomName}</td>
-              <td className="px-3 py-2 border">{room.roomType}</td>
-              <td className="px-3 py-2 border flex gap-1">
-                <Button size="small" icon={FiEdit} onClick={() => openModal(room)}>Edit</Button>
-                <Button size="small" icon={FiTrash2} variant="outline" onClick={() => handleDelete(room._id)}>Delete</Button>
-                <Button size="small" icon={FiUsers} onClick={() => openProfile(room)}>Profile</Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rooms.length === 0 && (
+              <tr>
+                <td colSpan="5" className="text-center p-4">No rooms found</td>
+              </tr>
+            )}
+            {rooms.map((room, idx) => (
+              <tr key={room._id} className="border-b border-gray-700">
+                <td className="px-4 py-2">{idx + 1}</td>
+                <td className="px-4 py-2">{room.resort?.name || 'Unknown'}</td>
+                <td className="px-4 py-2 ">{room.roomName}</td>
+                <td className="px-4 py-2">{room.roomType}</td>
+                <td className="px-4 py-2 flex gap-2">
+                  <Button size="small" icon={FiUsers} onClick={() => openProfile(room)}>Profile</Button>
+                  <Button size="small" icon={FiEdit} onClick={() => openModal(room)}>Edit</Button>
+                  <Button size="small" icon={FiTrash2} variant="outline" onClick={() => handleDelete(room._id)}>Delete</Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
 
       {/* Room Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingRoom ? 'Edit Room' : 'Add Room'}>
@@ -280,7 +302,7 @@ const RoomManagement = () => {
 
           {/* Amenities */}
           <div>
-            <label className="text-sm text-gray-300">Amenities</label>
+            <label className="text-sm text-gray-900">Amenities</label>
             <div className="flex gap-2 flex-wrap mt-2">
               {formData.amenities.map((a, i) => (
                 <span key={i} className="bg-gold-500 text-black px-2 py-1 rounded flex items-center gap-1">{a}<FiX onClick={() => removeAmenity(i)} className="cursor-pointer" /></span>
@@ -294,7 +316,7 @@ const RoomManagement = () => {
 
           {/* Transportation */}
           <div>
-            <label className="text-sm text-gray-300">Transportation</label>
+            <label className="text-sm text-gray-900">Transportation</label>
             <div className="flex gap-2 flex-wrap mt-2">
               {formData.transportations.map((t, i) => (
                 <span key={i} className="bg-gray-800 text-gray-200 px-2 py-1 rounded flex items-center gap-1">{t.type.toUpperCase()} – {t.method}<FiX onClick={() => removeTransportation(i)} className="cursor-pointer text-red-500" /></span>
@@ -311,7 +333,7 @@ const RoomManagement = () => {
 
           {/* Availability */}
           <div>
-            <label className="text-sm text-gray-300">Availability</label>
+            <label className="text-sm text-gray-900">Availability</label>
             <div className="flex gap-2 mt-2">
               <input type="date" className="input-luxury" value={formData.newAvailability.startDate} onChange={e => setFormData({ ...formData, newAvailability: { ...formData.newAvailability, startDate: e.target.value } })} />
               <input type="date" className="input-luxury" value={formData.newAvailability.endDate} onChange={e => setFormData({ ...formData, newAvailability: { ...formData.newAvailability, endDate: e.target.value } })} />
@@ -329,7 +351,7 @@ const RoomManagement = () => {
 
           {/* Images */}
           <div>
-            <label className="text-sm text-gray-300">Images</label>
+            <label className="text-sm text-gray-900">Images</label>
             <input type="file" multiple accept="image/*" onChange={handleImageChange} className="input-luxury w-full" />
             {imagePreviews.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">

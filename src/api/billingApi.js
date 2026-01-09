@@ -2,6 +2,7 @@ import axios from './axios';
 
 // Billing APIs
 export const billingApi = {
+  getStats: (period) => axios.get('/billing/stats', { params: { period } }),
   getInvoices: (params) => axios.get('/billing/invoices', { params }),
   getInvoiceById: (id) => axios.get(`/billing/invoices/${id}`),
   createInvoice: (data) => axios.post('/billing/invoices', data),

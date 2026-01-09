@@ -38,28 +38,7 @@ const DatesGuestsStep = ({
 
   return (
     <div className="w-full bg-gradient-to-br from-gray-50 to-gray-100 font-luxury">
-      {/* Progress Steps */}
-      {/* <div className="py-12">
-        <div className="w-full px-6">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500 text-white font-bold text-lg">1</div>
-              <span className="font-bold text-gray-900 text-base">Dates & Guests</span>
-            </div>
-            <div className="w-20 h-px bg-gray-300 mx-5"></div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-500 font-bold text-lg">2</div>
-              <span className="font-medium text-gray-400 text-base">Guest Info</span>
-            </div>
-            <div className="w-20 h-px bg-gray-300 mx-5"></div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200 text-gray-500 font-bold text-lg">3</div>
-              <span className="font-medium text-gray-400 text-base">Confirmation</span>
-            </div>
-          </div>
-        </div>
-      </div> */}
-
+    
       <div className="w-full px-8">
         <h1 className="text-4xl font-bold text-gray-900 mb-12">Select Dates & Guests</h1>
 
@@ -78,14 +57,14 @@ const DatesGuestsStep = ({
                   <FaMapMarkerAlt className="text-yellow-500 mr-3 text-base" />
                   <span className="text-base font-medium">{hotel?.location || "Maldives"}</span>
                 </div>
-                <div className="border-t border-gray-100 pt-6">
+                {/* <div className="border-t border-gray-100 pt-6">
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-bold text-yellow-600">
                       ${getFinalPerNightPrice(basePricePerNight, marketSurcharge)}
                     </span>
                     <span className="text-gray-500 text-base">per night</span>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
 

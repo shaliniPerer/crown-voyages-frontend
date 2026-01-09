@@ -20,12 +20,17 @@ export const bookingApi = {
   deleteBooking: (id) => axios.delete(`/bookings/${id}`),
   createVoucher: (data) => axios.post('/bookings/voucher', data),
   // Invoice & Receipt APIs
+  getInvoices: (params) => axios.get('/bookings/invoices', { params }),
   createInvoice: (data) => axios.post('/bookings/invoice', data),
   exportInvoicePDF: (id) => axios.get(`/bookings/invoice/${id}/pdf`, { responseType: 'blob' }),
   sendInvoiceEmail: (id) => axios.post(`/bookings/invoice/${id}/send-email`),
+  deleteInvoice: (id) => axios.delete(`/bookings/invoice/${id}`),
   createReceipt: (data) => axios.post('/bookings/receipt', data),
   exportReceiptPDF: (id) => axios.get(`/bookings/receipt/${id}/pdf`, { responseType: 'blob' }),
   sendReceiptEmail: (id) => axios.post(`/bookings/receipt/${id}/send-email`),
   getReceipts: (params) => axios.get('/bookings/receipts', { params }),
+  deleteReceipt: (id) => axios.delete(`/bookings/receipt/${id}`),
   recordPayment: (data) => axios.post('/billing/payments', data),
+  deleteQuotation: (id) => axios.delete(`/bookings/quotation/${id}`),
+  getReport: (type, period) => axios.get('/bookings/reports', { params: { type, period }, responseType: 'blob' }),
 };

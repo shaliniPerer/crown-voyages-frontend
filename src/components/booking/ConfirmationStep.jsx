@@ -25,7 +25,7 @@ const ConfirmationStep = ({ bookingData, hotelName, navigate }) => {
         </p>
       </div>
       <button
-        onClick={() => navigate("/booking?tab=bookings")}
+        onClick={() => navigate("/booking?tab=leads")}
         className="bg-yellow-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg hover:bg-yellow-700 transition-colors font-medium text-sm sm:text-base"
       >
         View Booking Details

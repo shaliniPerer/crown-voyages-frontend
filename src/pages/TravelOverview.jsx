@@ -161,30 +161,7 @@ const TravelOverview = () => {
             </div>
 
             {/* Meal Plans Section */}
-            <div className="bg-white rounded-lg p-4 md:p-6 shadow-sm border-2 border-yellow-500/30">
-              <div className="flex items-center justify-center gap-3 mb-4 md:mb-6">
-                <Utensils className="w-5 h-5 md:w-6 md:h-6 text-yellow-600" />
-                <div className="text-center">
-                  <h3 className="text-lg md:text-xl font-bold text-gray-900">Meal Plans</h3>
-                  <p className="text-xs md:text-sm text-gray-500">Choose your dining experience</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-4 md:p-5 rounded-lg">
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-bold text-gray-900 text-base md:text-lg">{resort.mealPlan || 'Full Board'}</h4>
-                  <div className="text-right">
-                    <div className="text-xl md:text-2xl font-bold text-yellow-600">
-                      ${resort.pricePerNight || '500'}
-                    </div>
-                    <div className="text-xs text-gray-500">per person/day</div>
-                  </div>
-                </div>
-                <p className="text-xs md:text-sm text-gray-600 mt-2">
-                  {resort.mealPlanDescription }
-                </p>
-              </div>
-            </div>
+            
           </div>
         )}
 

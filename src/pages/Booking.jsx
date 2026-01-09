@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2, FiFolder, FiDownload } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -26,6 +26,14 @@ const Booking = () => {
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [leadDocuments, setLeadDocuments] = useState({ quotations: [], invoices: [], receipts: [] });
+  const [searchFilters, setSearchFilters] = useState({
+    date: '',
+    id: '',
+    name: '',
+    email: ''
+  });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -155,6 +163,66 @@ const Booking = () => {
     setShowReceiptModal(true);
   };
 
+  const handleOpenDocuments = async (lead) => {
+    setSelectedLead(lead);
+    setShowDocumentsModal(true);
+    setLeadDocuments({ quotations: [], invoices: [], receipts: [] }); // Reset
+    
+    try {
+      // Parallel requests for all document types
+      const [quotationsRes, invoicesRes, receiptsRes] = await Promise.all([
+        bookingApi.getQuotations({ leadId: lead._id }), // Ensure backend supports filtering by leadId
+        bookingApi.getInvoices({ lead: lead._id }),
+        bookingApi.getReceipts({ lead: lead._id })
+      ]);
+
+      setLeadDocuments({
+        quotations: quotationsRes.data.data.filter(q => q.lead?._id === lead._id || q.lead === lead._id), // Client-side filter fallback
+        invoices: invoicesRes.data.data,
+        receipts: receiptsRes.data.data
+      });
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast.error('Failed to load documents');
+    }
+  };
+
+  const handleDownloadDocument = async (type, id, number) => {
+    try {
+      let response;
+      if (type === 'quotation') response = await bookingApi.exportQuotationPDF(id);
+      else if (type === 'invoice') response = await bookingApi.exportInvoicePDF(id);
+      else if (type === 'receipt') response = await bookingApi.exportReceiptPDF(id);
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${type}-${number}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(`Error downloading ${type}:`, error);
+      toast.error(`Failed to download ${type}`);
+    }
+  };
+
+  const handleViewDocument = async (type, id) => {
+    try {
+      let response;
+      if (type === 'quotation') response = await bookingApi.exportQuotationPDF(id);
+      else if (type === 'invoice') response = await bookingApi.exportInvoicePDF(id);
+      else if (type === 'receipt') response = await bookingApi.exportReceiptPDF(id);
+
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error(`Error viewing ${type}:`, error);
+      toast.error(`Failed to view ${type}`);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -245,12 +313,28 @@ const Booking = () => {
         sendEmail: formData.sendEmail || false,
       };
       
-      await bookingApi.createQuotation(quotationData);
+      const response = await bookingApi.createQuotation(quotationData);
+      const newQuotation = response.data.data;
       
       if (formData.sendEmail) {
         toast.success('Quotation created and email sent successfully!');
       } else {
         toast.success('Quotation created successfully');
+      }
+
+      if (formData.downloadPdf) {
+        try {
+          const pdfResponse = await bookingApi.exportQuotationPDF(newQuotation._id);
+          const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `quotation-${newQuotation.quotationNumber}.pdf`;
+          link.click();
+        } catch (pdfError) {
+          console.error('PDF download error:', pdfError);
+          toast.error('Failed to download PDF');
+        }
       }
       
       setShowQuotationModal(false);
@@ -278,15 +362,34 @@ const Booking = () => {
         lead: selectedLead._id,
       };
       const response = await bookingApi.createInvoice(invoiceData);
+      const newInvoice = response.data.data;
       toast.success('Invoice created successfully');
       setShowInvoiceModal(false);
-      setFormData({});
-      fetchData();
+      
       // Send email if checked
       if (formData.sendEmail) {
-        await bookingApi.sendInvoiceEmail(response.data.data._id);
+        await bookingApi.sendInvoiceEmail(newInvoice._id);
         toast.success('Email sent successfully');
       }
+
+      // Download PDF if checked
+      if (formData.downloadPdf) {
+        try {
+          const pdfResponse = await bookingApi.exportInvoicePDF(newInvoice._id);
+          const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `invoice-${newInvoice.invoiceNumber}.pdf`;
+          link.click();
+        } catch (pdfError) {
+          console.error('PDF download error:', pdfError);
+          toast.error('Failed to download PDF');
+        }
+      }
+
+      setFormData({});
+      fetchData();
     } catch (error) {
       console.error('Error creating invoice:', error);
       toast.error(error.response?.data?.message || 'Invoice creation failed');
@@ -310,15 +413,34 @@ const Booking = () => {
         lead: selectedLead._id,
       };
       const response = await bookingApi.createReceipt(receiptData);
+      const newReceipt = response.data.data;
       toast.success('Receipt created successfully');
       setShowReceiptModal(false);
-      setFormData({});
-      fetchData();
+      
       // Send email if checked
       if (formData.sendEmail) {
-        await bookingApi.sendReceiptEmail(response.data.data._id);
+        await bookingApi.sendReceiptEmail(newReceipt._id);
         toast.success('Email sent successfully');
       }
+
+      // Download PDF if checked
+      if (formData.downloadPdf) {
+        try {
+          const pdfResponse = await bookingApi.exportReceiptPDF(newReceipt._id);
+          const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `receipt-${newReceipt.receiptNumber}.pdf`;
+          link.click();
+        } catch (pdfError) {
+          console.error('PDF download error:', pdfError);
+          toast.error('Failed to download PDF');
+        }
+      }
+
+      setFormData({});
+      fetchData();
     } catch (error) {
       console.error('Error creating receipt:', error);
       toast.error(error.response?.data?.message || 'Receipt creation failed');
@@ -346,7 +468,7 @@ const Booking = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-luxury font-bold text-gold-500">Booking Management</h1>
-          <p className="text-gray-400 mt-1">Manage leads, quotations, and bookings</p>
+          <p className="text-gray-400 mt-1">Create & Manage bookings</p>
         </div>
         <Button
           variant="primary"
@@ -365,7 +487,7 @@ const Booking = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 bg-luxury-light p-1 rounded-lg border border-gold-800/30">
+      {/* <div className="flex space-x-1 bg-luxury-light p-1 rounded-lg border border-gold-800/30">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -378,7 +500,41 @@ const Booking = () => {
             {tab.label}
           </button>
         ))}
-      </div>
+      </div> */}
+
+      {/* Search Filters */}
+      <Card className="p-4 bg-gray-800/50 border border-gray-700">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Input
+            label="Date"
+            type="date"
+            value={searchFilters.date}
+            onChange={(e) => setSearchFilters(prev => ({ ...prev, date: e.target.value }))}
+            className="text-sm"
+          />
+          <Input
+            label="Booking ID"
+            placeholder="Search ID..."
+            value={searchFilters.id}
+            onChange={(e) => setSearchFilters(prev => ({ ...prev, id: e.target.value }))}
+            className="text-sm"
+          />
+          <Input
+            label="Booking Name"
+            placeholder="Search Name..."
+            value={searchFilters.name}
+            onChange={(e) => setSearchFilters(prev => ({ ...prev, name: e.target.value }))}
+            className="text-sm"
+          />
+          <Input
+            label="Email"
+            placeholder="Search Email..."
+            value={searchFilters.email}
+            onChange={(e) => setSearchFilters(prev => ({ ...prev, email: e.target.value }))}
+            className="text-sm"
+          />
+        </div>
+      </Card>
 
       {/* Content */}
       {activeTab === 'leads' && (
@@ -387,6 +543,8 @@ const Booking = () => {
             <table className="table-luxury">
               <thead>
                 <tr>
+                  <th>Booking ID</th>
+                  <th>Date</th>
                   <th>Customer Name</th>
                   <th>Email</th>
                   <th>Phone</th>
@@ -396,9 +554,43 @@ const Booking = () => {
                 </tr>
               </thead>
               <tbody>
-                {leads.length > 0 ? (
-                  leads.map((lead) => (
+                {leads.filter(lead => {
+                  const matchDate = !searchFilters.date || new Date(lead.createdAt).toLocaleDateString('en-CA') === searchFilters.date;
+                  const leadId = lead.leadNumber || '';
+                  const bookingId = lead.booking?.bookingNumber || '';
+                  const matchId = !searchFilters.id || 
+                    leadId.toLowerCase().includes(searchFilters.id.toLowerCase()) || 
+                    bookingId.toLowerCase().includes(searchFilters.id.toLowerCase());
+                  const matchName = !searchFilters.name || lead.guestName.toLowerCase().includes(searchFilters.name.toLowerCase());
+                  const matchEmail = !searchFilters.email || lead.email.toLowerCase().includes(searchFilters.email.toLowerCase());
+                  
+                  return matchDate && matchId && matchName && matchEmail;
+                }).length > 0 ? (
+                  leads.filter(lead => {
+                    const matchDate = !searchFilters.date || new Date(lead.createdAt).toLocaleDateString('en-CA') === searchFilters.date;
+                    const leadId = lead.leadNumber || '';
+                    const bookingId = lead.booking?.bookingNumber || '';
+                    const matchId = !searchFilters.id || 
+                      leadId.toLowerCase().includes(searchFilters.id.toLowerCase()) || 
+                      bookingId.toLowerCase().includes(searchFilters.id.toLowerCase());
+                    const matchName = !searchFilters.name || lead.guestName.toLowerCase().includes(searchFilters.name.toLowerCase());
+                    const matchEmail = !searchFilters.email || lead.email.toLowerCase().includes(searchFilters.email.toLowerCase());
+                    
+                    return matchDate && matchId && matchName && matchEmail;
+                  }).map((lead) => (
                     <tr key={lead._id}>
+                      <td className="font-mono text-gold-500">
+                        {lead.booking?.bookingNumber ? (
+                          lead.booking.bookingNumber
+                        ) : lead.leadNumber ? (
+                          <span className="text-gray-400" title="Lead ID">{lead.leadNumber}</span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="text-gray-400 text-sm">
+                        {new Date(lead.createdAt).toLocaleDateString()}
+                      </td>
                       <td className="font-medium text-gray-100">{lead.guestName}</td>
                       <td>{lead.email}</td>
                       <td>{lead.phone}</td>
@@ -454,6 +646,13 @@ const Booking = () => {
                             <FiFile size={16} />
                           </button>
                           <button 
+                            onClick={() => handleOpenDocuments(lead)}
+                            className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                            title="View Documents"
+                          >
+                            <FiFolder size={16} />
+                          </button>
+                          <button 
                             onClick={() => handleDeleteLead(lead._id, lead.guestName)}
                             className="p-1.5 hover:bg-red-500/10 rounded transition-colors text-gray-400 hover:text-red-500"
                             title="Delete Lead"
@@ -466,7 +665,7 @@ const Booking = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="text-center text-gray-400 py-8">
+                    <td colSpan="7" className="text-center text-gray-400 py-8">
                       No leads found
                     </td>
                   </tr>
@@ -1622,15 +1821,28 @@ const Booking = () => {
             </div>
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="sendQuotationEmail"
-              checked={formData.sendEmail || false}
-              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="sendQuotationEmail" className="text-sm">Send quotation email to customer</label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="sendQuotationEmail"
+                checked={formData.sendEmail || false}
+                onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="sendQuotationEmail" className="text-sm">Send quotation email to customer</label>
+            </div>
+            
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="downloadQuotationPdf"
+                checked={formData.downloadPdf || false}
+                onChange={(e) => setFormData({ ...formData, downloadPdf: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="downloadQuotationPdf" className="text-sm">Download PDF</label>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -1729,15 +1941,28 @@ const Booking = () => {
             />
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="sendInvoiceEmail"
-              checked={formData.sendEmail || false}
-              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="sendInvoiceEmail" className="text-sm">Send invoice email to customer</label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="sendInvoiceEmail"
+                checked={formData.sendEmail || false}
+                onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="sendInvoiceEmail" className="text-sm">Send invoice email to customer</label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="downloadInvoicePdf"
+                checked={formData.downloadPdf || false}
+                onChange={(e) => setFormData({ ...formData, downloadPdf: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="downloadInvoicePdf" className="text-sm">Download PDF</label>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -1842,15 +2067,28 @@ const Booking = () => {
             />
           </div>
 
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="sendReceiptEmail"
-              checked={formData.sendEmail || false}
-              onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-              className="mr-2"
-            />
-            <label htmlFor="sendReceiptEmail" className="text-sm">Send receipt email to customer</label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="sendReceiptEmail"
+                checked={formData.sendEmail || false}
+                onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="sendReceiptEmail" className="text-sm">Send receipt email to customer</label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="downloadReceiptPdf"
+                checked={formData.downloadPdf || false}
+                onChange={(e) => setFormData({ ...formData, downloadPdf: e.target.checked })}
+                className="mr-2"
+              />
+              <label htmlFor="downloadReceiptPdf" className="text-sm">Download PDF</label>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
@@ -1863,6 +2101,90 @@ const Booking = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Documents Modal */}
+      <Modal isOpen={showDocumentsModal} onClose={() => setShowDocumentsModal(false)} title="Booking Documents">
+        <div className="max-h-[80vh] overflow-y-auto space-y-6">
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg p-4 border border-gold-800">
+            <h4 className="text-gold-500 font-semibold text-lg flex items-center">
+              <FiFolder className="mr-2" /> Documents for {selectedLead?.guestName}
+            </h4>
+            <p className="text-gray-400 text-sm mt-1">Lead ID: {selectedLead?.leadNumber || selectedLead?._id}</p>
+          </div>
+
+          {[
+            { title: 'Quotations', data: leadDocuments.quotations, type: 'quotation', icon: FiFileText, color: 'text-blue-500' },
+            { title: 'Invoices', data: leadDocuments.invoices, type: 'invoice', icon: FiDollarSign, color: 'text-purple-500' },
+            { title: 'Receipts', data: leadDocuments.receipts, type: 'receipt', icon: FiFile, color: 'text-green-500' }
+          ].map((section) => (
+            <div key={section.type} className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center">
+                <section.icon className={`mr-2 ${section.color}`} />
+                <h5 className="font-semibold text-gray-800">{section.title}</h5>
+                <span className="ml-2 bg-gray-200 text-gray-600 text-xs px-2 py-0.5 rounded-full">
+                  {section.data.length}
+                </span>
+              </div>
+              
+              {section.data.length > 0 ? (
+                <div className="divide-y divide-gray-100">
+                  {section.data.map((doc) => (
+                    <div key={doc._id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                      <div>
+                        <div className="flex items-center">
+                          <p className="font-medium text-gray-900">
+                            {doc.quotationNumber || doc.invoiceNumber || doc.receiptNumber}
+                          </p>
+                          <span className={`ml-3 text-xs px-2 py-0.5 rounded-full border ${
+                            section.type === 'quotation' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                            section.type === 'invoice' ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                            'bg-green-50 text-green-600 border-green-200'
+                          }`}>
+                            ${(doc.finalAmount || doc.amount || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Created: {new Date(doc.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDocument(section.type, doc._id)}
+                          className="flex items-center px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors"
+                          title="View PDF"
+                        >
+                          <FiEye className="mr-1.5" size={14} />
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDownloadDocument(section.type, doc._id, doc.quotationNumber || doc.invoiceNumber || doc.receiptNumber)}
+                          className="flex items-center px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors"
+                          title="Download PDF"
+                        >
+                          <FiDownload className="mr-1.5" size={14} />
+                          Download
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-gray-400 text-sm">
+                  No {section.title.toLowerCase()} found
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setShowDocumentsModal(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 };

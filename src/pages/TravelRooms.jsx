@@ -151,7 +151,7 @@ const TravelRooms = () => {
         {rooms.length > 0 && (
           <div className="bg-green-50 border-2 border-green-500/30 rounded-xl p-4 mb-6 text-center">
             <p className="text-green-700 font-semibold">
-              <span className="text-green-600 text-lg">{rooms.length}</span> Rooms Available for $0
+              <span className="text-green-600 text-lg">{rooms.length}</span> Rooms Available 
             </p>
           </div>
         )}
@@ -240,8 +240,8 @@ const TravelRooms = () => {
                     {/* Price and Button */}
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
                       <div>
-                        <p className="text-sm text-gray-500">$0 × 0 Nights</p>
-                        <p className="text-2xl font-bold text-yellow-600">Total: $0</p>
+                        
+                        
                       </div>
                       <button
                         onClick={() => navigate(`/travel/room/${room._id}`)}
