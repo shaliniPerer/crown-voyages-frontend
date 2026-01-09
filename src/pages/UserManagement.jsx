@@ -30,9 +30,7 @@ const UserManagement = () => {
     try {
       const response = await userApi.getUsers();
       // Ensure users is always an array
-      const userArray = Array.isArray(response.data)
-        ? response.data
-        : response.data?.users || [];
+      const userArray = response.data?.data || [];
       setUsers(userArray);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -95,7 +93,7 @@ const UserManagement = () => {
   const handleViewActivity = async (userId) => {
     try {
       const response = await userApi.getActivityLogs(userId);
-      const logs = Array.isArray(response.data) ? response.data : [];
+      const logs = response.data?.data || [];
       setActivityLogs(logs);
       setShowActivityModal(true);
     } catch (error) {
@@ -133,7 +131,7 @@ const UserManagement = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <h3 className="text-gray-400 text-sm font-medium mb-2">Total Users</h3>
-          <p className="text-3xl font-bold text-gray-100">{users.length}</p>
+          <p className="text-3xl font-bold text-gray-900">{users.length}</p>
         </Card>
         <Card>
           <h3 className="text-gray-400 text-sm font-medium mb-2">Active Admins</h3>
