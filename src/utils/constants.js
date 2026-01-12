@@ -1,5 +1,5 @@
 // API Base URL
-export const API_BASE_URL = import.meta.env. || 'http://localhost:5000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // App Info
 export const APP_NAME = 'Resort Luxury';
@@ -50,6 +50,42 @@ export const PAYMENT_METHODS = {
   BANK_TRANSFER: 'Bank Transfer',
   CHEQUE: 'Cheque',
   ONLINE: 'Online',
+};
+
+// Default Reminder Templates
+export const DEFAULT_REMINDER_TEMPLATES = {
+  before: `Dear {customer_name},
+
+This is a friendly reminder that your invoice {invoice_number} of {amount} is due on {due_date}.
+
+Please make payment at your earliest convenience to avoid any late fees.
+
+Thank you for your business!
+
+Best regards,
+Crown Voyages Team`,
+
+  on: `Dear {customer_name},
+
+Your invoice {invoice_number} of {amount} is due today.
+
+Please process your payment as soon as possible.
+
+Thank you for your prompt attention.
+
+Best regards,
+Crown Voyages Team`,
+
+  after: `Dear {customer_name},
+
+Your payment for invoice {invoice_number} of {amount} is now overdue.
+
+The due date was {due_date}. Please make payment immediately to avoid additional late fees.
+
+If you have already made this payment, please disregard this notice.
+
+Best regards,
+Crown Voyages Team`,
 };
 
 // Payment Status

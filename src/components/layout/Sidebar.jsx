@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { FiHome, FiBarChart2, FiCalendar, FiMap, FiGrid, FiFileText, FiUsers } from 'react-icons/fi';
+import { FiHome, FiBarChart2, FiCalendar, FiMap, FiGrid, FiFileText, FiUsers, FiBell } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = () => {
@@ -10,6 +10,7 @@ const Sidebar = () => {
     // { path: '/analytics', label: 'Analytics', icon: FiBarChart2 },
     { path: '/booking', label: 'Booking', icon: FiCalendar },
     { path: '/billing', label: 'Billing & Invoices', icon: FiFileText },
+    // { path: '/payment-reminders', label: 'Payment Reminders', icon: FiBell },
     { path: '/resorts', label: 'Resort Management', icon: FiMap },
     { path: '/rooms', label: 'Room Management', icon: FiGrid },
     

@@ -8,6 +8,7 @@ export const billingApi = {
   createInvoice: (data) => axios.post('/billing/invoices', data),
   updateInvoice: (id, data) => axios.patch(`/billing/invoices/${id}`, data),
   sendInvoiceEmail: (id) => axios.post(`/billing/invoices/${id}/send-email`),
+  sendManualReminder: (id, data) => axios.post(`/billing/invoices/${id}/remind`, data),
   exportInvoicePDF: (id) => axios.get(`/billing/invoices/${id}/pdf`, { responseType: 'blob' }),
   recordPayment: (data) => axios.post('/billing/payments', data),
   getPayments: (params) => axios.get('/billing/payments', { params }),
@@ -17,4 +18,5 @@ export const billingApi = {
   updateReminder: (id, data) => axios.patch(`/billing/reminders/${id}`, data),
   deleteReminder: (id) => axios.delete(`/billing/reminders/${id}`),
   createReceipt: (data) => axios.post('/billing/receipts', data),
+  getHistory: () => axios.get('/billing/history'),
 };

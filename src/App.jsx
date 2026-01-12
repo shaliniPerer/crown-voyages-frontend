@@ -14,6 +14,7 @@ import BookingFlow from './pages/BookingFlow';
 import ResortManagement from './pages/ResortManagement';
 import RoomManagement from './pages/RoomManagement';
 import Billing from './pages/Billing';
+import PaymentReminders from './pages/PaymentReminders';
 import UserManagement from './pages/UserManagement';
 import Loader from './components/common/Loader';
 
@@ -48,6 +49,7 @@ function App() {
               <Route path="resorts" element={<ResortManagement />} />
               <Route path="rooms" element={<RoomManagement />} />
               <Route path="billing" element={<Billing />} />
+              <Route path="payment-reminders" element={<PaymentReminders />} />
               <Route
                 path="users"
                 element={user?.role === 'Admin' ? <UserManagement /> : <Navigate to="/dashboard" replace />}

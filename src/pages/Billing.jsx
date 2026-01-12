@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiFileText, FiMail, FiDollarSign, FiDownload, FiTrash2, FiPrinter, FiEye } from 'react-icons/fi';
+import { FiPlus, FiFileText, FiMail, FiDollarSign, FiDownload, FiTrash2, FiPrinter, FiEye, FiBell } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -8,18 +8,29 @@ import { billingApi} from '../api/billingApi';
 import { bookingApi } from '../api/bookingApi';
 import { toast } from 'react-toastify';
 
+import { DEFAULT_REMINDER_TEMPLATES } from '../utils/constants';
+
 const Billing = () => {
   const [activeTab, setActiveTab] = useState('quotations');
   const [quotations, setQuotations] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [receipts, setReceipts] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [reminderHistory, setReminderHistory] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
   const [reportType, setReportType] = useState('quotation');
   const [reportPeriod, setReportPeriod] = useState('monthly');
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showReminderDraftModal, setShowReminderDraftModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [reminderDraft, setReminderDraft] = useState({
+    subject: '',
+    template: '',
+    type: 'before'
+  });
+  const [sendingReminder, setSendingReminder] = useState(false);
   const [billingFilters, setBillingFilters] = useState({
     date: '',
     docId: '',
@@ -46,6 +57,15 @@ const Billing = () => {
       } else if (activeTab === 'payments') {
         const res = await billingApi.getPayments();
         setPayments(res.data.data || res.data || []);
+      } else if (activeTab === 'reminders') {
+        const res = await billingApi.getHistory();
+        const logs = res.data.data || res.data || [];
+        // Filter only reminder-related logs or email sends
+        const history = logs.filter(log => 
+          log.description?.toLowerCase().includes('reminder') || 
+          log.action === 'send_email'
+        );
+        setReminderHistory(history);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -180,10 +200,69 @@ const Billing = () => {
     }
   };
 
+  const handleSendReminder = async (invoice) => {
+    try {
+      if (invoice.status === 'Paid' || invoice.status === 'Cancelled') {
+        toast.info('This invoice is already paid or cancelled.');
+        return;
+      }
+      
+      const type = invoice.status === 'Overdue' ? 'after' : 'before';
+      
+      let subject = `Payment Reminder for Invoice ${invoice.invoiceNumber}`;
+      let template = DEFAULT_REMINDER_TEMPLATES[type] || DEFAULT_REMINDER_TEMPLATES.before;
+
+      try {
+        const res = await billingApi.getReminders();
+        const activeReminders = res.data.data || res.data || [];
+        const matchingReminder = activeReminders.find(r => r.enabled && r.reminderType === type);
+        if (matchingReminder) {
+          subject = matchingReminder.subject;
+          template = matchingReminder.template;
+        }
+      } catch (e) {
+        console.log("Could not fetch configured reminders, using default");
+      }
+
+      setSelectedInvoice(invoice);
+      setReminderDraft({
+        subject,
+        template,
+        type
+      });
+      setShowReminderDraftModal(true);
+    } catch (error) {
+      console.error('Reminder error:', error);
+      toast.error('Failed to prepare reminder');
+    }
+  };
+
+  const handleConfirmSendReminder = async (e) => {
+    e.preventDefault();
+    try {
+      setSendingReminder(true);
+      await billingApi.sendManualReminder(selectedInvoice._id, {
+        type: reminderDraft.type,
+        subject: reminderDraft.subject,
+        template: reminderDraft.template
+      });
+      toast.success('Reminder email sent successfully');
+      setShowReminderDraftModal(false);
+      // Refresh history if we are on the reminders tab
+      if (activeTab === 'reminders') fetchData();
+    } catch (error) {
+      console.error('Error sending reminder:', error);
+      toast.error('Failed to send reminder email');
+    } finally {
+      setSendingReminder(false);
+    }
+  };
+
   const tabs = [
     { id: 'quotations', label: 'Quotations' },
     { id: 'invoices', label: 'Invoices' },
     { id: 'receipts', label: 'Receipts' },
+    // { id: 'reminders', label: 'Reminders' },
   ];
 
   return (
@@ -350,9 +429,9 @@ const Billing = () => {
                   <th>Date</th>
                   <th>Booking Ref</th>
                   <th>Customer</th>
-                  <th>Base Price</th>
-                  <th>Discount</th>
-                  <th>Final Price</th>
+                  <th>Total Amount</th>
+                  <th>Paid</th>
+                  <th>Balance</th>
                   <th>Due Date</th>
                   <th>Actions</th>
                 </tr>
@@ -385,10 +464,15 @@ const Billing = () => {
                         {invoice.lead?.booking?.bookingNumber || invoice.lead?.leadNumber || '-'}
                       </td>
                       <td className="font-medium text-gray-100">{invoice.customerName}</td>
-                      <td className="font-semibold">${(invoice.amount || 0).toLocaleString()}</td>
-                      <td className="text-green-600">-${(invoice.discountValue || 0).toLocaleString()}</td>
-                      <td className="font-semibold text-gold-500">${(invoice.finalAmount || 0).toLocaleString()}</td>
-                      <td>{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</td>
+                      <td className="font-semibold">${(invoice.finalAmount || 0).toLocaleString()}</td>
+                      <td className="text-green-400">${(invoice.paidAmount || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-red-500">${(invoice.balance || 0).toLocaleString()}</td>
+                      <td>
+                        <div className="flex flex-col">
+                          <span className="text-gray-900">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</span>
+                          {invoice.status === 'Overdue' && <span className="text-[10px] text-red-400 font-bold uppercase">Overdue</span>}
+                        </div>
+                      </td>
                       <td className="flex gap-2">
                         <Button
                           variant="outline"
@@ -396,6 +480,14 @@ const Billing = () => {
                           icon={FiEye}
                           onClick={() => handleView(invoice, 'invoice')}
                           title="View PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiBell}
+                          onClick={() => handleSendReminder(invoice)}
+                          title="Send Reminder"
+                          className="text-gold-500 border-gold-500 hover:bg-gold-500/10"
                         />
                         <Button
                           variant="outline"
@@ -561,14 +653,76 @@ const Billing = () => {
 
       {/* Reminders Tab */}
       {activeTab === 'reminders' && (
-        <Card>
-          <div className="text-center py-12">
-            <p className="text-gray-400 mb-4">Payment reminder system</p>
-            <Button variant="primary" icon={FiPlus}>
-              Setup Reminder
-            </Button>
-          </div>
-        </Card>
+        <div className="space-y-4">
+          <Card className="p-6 bg-gradient-to-r from-luxury-light to-transparent border border-gold-500/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <FiBell className="w-10 h-10 text-gold-500" />
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-100">Automation Settings</h3>
+                  <p className="text-gray-400">Manage automatic schedules and templates</p>
+                </div>
+              </div>
+              <Button 
+                variant="primary" 
+                onClick={() => window.location.href='/payment-reminders'}
+                icon={FiPlus}
+              >
+                Configure Schedules
+              </Button>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="p-4 border-b border-gray-700/50">
+              <h3 className="text-lg font-medium text-gray-200">Recent Reminder Activity</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="table-luxury">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Action</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>User</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reminderHistory.length > 0 ? (
+                    reminderHistory.map((log) => (
+                      <tr key={log._id}>
+                        <td className="text-gray-400 text-sm">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                        <td>
+                          <span className="px-2 py-1 rounded bg-gold-500/20 text-gold-400 text-xs font-medium uppercase">
+                            {log.action.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="text-gray-100 text-sm">{log.description}</td>
+                        <td>
+                          <span className="flex items-center gap-1 text-green-400 text-xs">
+                            <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                            Sent
+                          </span>
+                        </td>
+                        <td className="text-gold-500 text-sm font-medium">{log.user?.name || 'System'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center text-gray-400 py-12">
+                        <FiBell className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        No reminder history found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Modal */}
@@ -663,6 +817,74 @@ const Billing = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Reminder Preview Modal */}
+      <Modal 
+        isOpen={showReminderDraftModal} 
+        onClose={() => setShowReminderDraftModal(false)} 
+        title="Send Payment Reminder"
+      >
+        <form onSubmit={handleConfirmSendReminder} className="space-y-4">
+          <div className="bg-gold-500/10 p-3 rounded-lg border border-gold-500/20 mb-4">
+            <p className="text-sm text-gold-500">
+              <span className="font-bold">Recipient:</span> {selectedInvoice?.customerName} ({selectedInvoice?.email})
+            </p>
+            <p className="text-sm text-gold-500">
+              <span className="font-bold">Invoice:</span> {selectedInvoice?.invoiceNumber} - ${selectedInvoice?.balance?.toLocaleString()} outstanding
+            </p>
+          </div>
+
+          <Input
+            label="Email Subject"
+            value={reminderDraft.subject}
+            onChange={(e) => setReminderDraft({ ...reminderDraft, subject: e.target.value })}
+            required
+          />
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Email Template
+            </label>
+            <textarea
+              className="input-luxury w-full"
+              rows={10}
+              value={reminderDraft.template}
+              onChange={(e) => setReminderDraft({ ...reminderDraft, template: e.target.value })}
+              placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
+              required
+            />
+          </div>
+
+          <div className="text-[10px] text-gray-400 bg-luxury-light p-2 rounded border border-gold-800/20">
+            <p className="font-semibold mb-1 uppercase">Available Placeholders:</p>
+            <div className="grid grid-cols-2 gap-x-2">
+              <span>{'{customer_name}'}</span>
+              <span>{'{invoice_number}'}</span>
+              <span>{'{amount}'}</span>
+              <span>{'{due_date}'}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="flex-1"
+              disabled={sendingReminder}
+            >
+              {sendingReminder ? 'Sending...' : 'Send Reminder Now'}
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setShowReminderDraftModal(false)} 
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
