@@ -154,6 +154,39 @@ const BookingFlow = () => {
       if (bookingData.checkIn && bookingData.checkOut && new Date(bookingData.checkIn) >= new Date(bookingData.checkOut)) {
         newErrors.checkOut = 'Check-out must be after check-in';
       }
+
+      // Check if dates are within availability ranges
+      if (bookingData.checkIn && bookingData.checkOut && room?.availabilityCalendar?.length > 0) {
+        const start = new Date(bookingData.checkIn);
+        const end = new Date(bookingData.checkOut);
+        const isWithinRange = room.availabilityCalendar.some(range => {
+          const rangeStart = new Date(range.startDate);
+          const rangeEnd = new Date(range.endDate);
+          return start >= rangeStart && end <= rangeEnd;
+        });
+
+        if (!isWithinRange) {
+          toast.error("Selected dates are outside of this room's available calendar.");
+          newErrors.checkIn = 'Dates outside availability range';
+        }
+      }
+
+      // Check if dates overlap with existing bookings (locked dates)
+      if (bookingData.checkIn && bookingData.checkOut && room?.bookedDates?.length > 0) {
+        const start = new Date(bookingData.checkIn);
+        const end = new Date(bookingData.checkOut);
+        
+        const isOverlapping = room.bookedDates.some(b => {
+          const bStart = new Date(b.start);
+          const bEnd = new Date(b.end);
+          return start < bEnd && end > bStart;
+        });
+
+        if (isOverlapping) {
+          toast.error('The selected dates overlap with an existing booking.');
+          newErrors.checkIn = 'Dates already booked';
+        }
+      }
     } else if (step === 1) {
       if (!bookingData.clientName) newErrors.clientName = 'Name is required';
       if (!bookingData.clientEmail) newErrors.clientEmail = 'Email is required';

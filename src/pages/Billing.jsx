@@ -16,6 +16,7 @@ const Billing = () => {
   const [invoices, setInvoices] = useState([]);
   const [receipts, setReceipts] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [reminderHistory, setReminderHistory] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -58,12 +59,19 @@ const Billing = () => {
         const res = await billingApi.getPayments();
         setPayments(res.data.data || res.data || []);
       } else if (activeTab === 'reminders') {
-        const res = await billingApi.getHistory();
-        const logs = res.data.data || res.data || [];
+        const [historyRes, remindersRes] = await Promise.all([
+          billingApi.getHistory(),
+          billingApi.getReminders()
+        ]);
+        
+        const logs = historyRes.data.data || historyRes.data || [];
+        setReminders(remindersRes.data.data || remindersRes.data || []);
+        
         // Filter only reminder-related logs or email sends
         const history = logs.filter(log => 
           log.description?.toLowerCase().includes('reminder') || 
-          log.action === 'send_email'
+          log.action === 'send_email' ||
+          log.resource === 'reminder'
         );
         setReminderHistory(history);
       }
@@ -78,7 +86,18 @@ const Billing = () => {
     if (data) {
       setFormData(data);
     } else {
-      setFormData({});
+      if (type === 'reminder') {
+        setFormData({
+          reminderType: 'before',
+          days: 3,
+          frequency: 'once',
+          subject: 'Payment Reminder - Invoice {invoice_number}',
+          template: DEFAULT_REMINDER_TEMPLATES.before,
+          enabled: true,
+        });
+      } else {
+        setFormData({});
+      }
     }
     setShowModal(true);
   };
@@ -90,8 +109,22 @@ const Billing = () => {
         await billingApi.createInvoice(formData);
         toast.success('Invoice created successfully');
       } else if (modalType === 'payment') {
-        await billingApi.recordPayment(formData);
+        const paymentData = {
+          invoice: formData.invoice,
+          amount: parseFloat(formData.amountValue || formData.amount),
+          method: formData.method || 'Cash',
+          notes: formData.notes
+        };
+        await billingApi.recordPayment(paymentData);
         toast.success('Payment recorded successfully');
+      } else if (modalType === 'reminder') {
+        if (formData._id) {
+          await billingApi.updateReminder(formData._id, formData);
+          toast.success('Reminder updated successfully');
+        } else {
+          await billingApi.createReminder(formData);
+          toast.success('Reminder created successfully');
+        }
       }
       setShowModal(false);
       fetchData();
@@ -109,12 +142,27 @@ const Billing = () => {
         await bookingApi.deleteInvoice(id);
       } else if (type === 'receipt') {
         await bookingApi.deleteReceipt(id);
+      } else if (type === 'reminder') {
+        await billingApi.deleteReminder(id);
       }
       toast.success('Deleted successfully');
       fetchData();
     } catch (error) {
       console.error('Delete error:', error);
       toast.error('Failed to delete item');
+    }
+  };
+
+  const handleToggleStatus = async (reminder) => {
+    try {
+      await billingApi.updateReminder(reminder._id, {
+        ...reminder,
+        enabled: !reminder.enabled,
+      });
+      toast.success(`Reminder ${!reminder.enabled ? 'enabled' : 'disabled'}`);
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to update status');
     }
   };
 
@@ -262,7 +310,8 @@ const Billing = () => {
     { id: 'quotations', label: 'Quotations' },
     { id: 'invoices', label: 'Invoices' },
     { id: 'receipts', label: 'Receipts' },
-    // { id: 'reminders', label: 'Reminders' },
+    { id: 'payments', label: 'Payments' },
+    { id: 'reminders', label: 'Reminders' },
   ];
 
   return (
@@ -429,10 +478,11 @@ const Billing = () => {
                   <th>Date</th>
                   <th>Booking Ref</th>
                   <th>Customer</th>
-                  <th>Total Amount</th>
-                  <th>Paid</th>
+                  <th>Invoice Amt</th>
+                  <th>Booking Total</th>
+                  <th>Total Paid</th>
                   <th>Balance</th>
-                  <th>Due Date</th>
+                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -456,7 +506,14 @@ const Billing = () => {
                     return matchDate && matchDocId && matchBookingId;
                   }).map((invoice) => (
                     <tr key={invoice._id}>
-                      <td className="font-mono text-gold-500">{invoice.invoiceNumber}</td>
+                      <td className="font-mono text-gold-500">
+                        {invoice.invoiceNumber}
+                        {invoice.dueDate && (
+                          <div className="text-[10px] text-gray-500 mt-1 uppercase">
+                            Due: {new Date(invoice.dueDate).toLocaleDateString()}
+                          </div>
+                        )}
+                      </td>
                       <td className="text-gray-400 text-sm">
                         {new Date(invoice.createdAt).toLocaleDateString()}
                       </td>
@@ -465,15 +522,24 @@ const Billing = () => {
                       </td>
                       <td className="font-medium text-gray-100">{invoice.customerName}</td>
                       <td className="font-semibold">${(invoice.finalAmount || 0).toLocaleString()}</td>
-                      <td className="text-green-400">${(invoice.paidAmount || 0).toLocaleString()}</td>
-                      <td className="font-semibold text-red-500">${(invoice.balance || 0).toLocaleString()}</td>
+                      <td className="text-gray-400 text-xs italic">${(invoice.lead?.totalAmount || invoice.finalAmount || 0).toLocaleString()}</td>
+                      <td className="text-green-400 font-bold">${(invoice.lead?.paidAmount || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-red-500">${(invoice.lead?.balance || 0).toLocaleString()}</td>
                       <td>
-                        <div className="flex flex-col">
-                          <span className="text-gray-900">{invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}</span>
-                          {invoice.status === 'Overdue' && <span className="text-[10px] text-red-400 font-bold uppercase">Overdue</span>}
-                        </div>
+                        <span className={`badge-${invoice.status === 'Paid' ? 'green' : invoice.status === 'Partial' ? 'gold' : 'red'}`}>
+                          {invoice.status}
+                        </span>
                       </td>
                       <td className="flex gap-2">
+                        {/* <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiDollarSign}
+                          onClick={() => handleOpenModal('payment', { invoice: invoice._id, amount: invoice.balance, customerName: invoice.customerName })}
+                          title="Record Payment"
+                          className="text-green-500 border-green-500 hover:bg-green-500/10"
+                          disabled={invoice.status === 'Paid'}
+                        /> */}
                         <Button
                           variant="outline"
                           size="small"
@@ -530,9 +596,9 @@ const Billing = () => {
                   <th>Date</th>
                   <th>Booking Ref</th>
                   <th>Customer</th>
-                  <th>Base Price</th>
-                  <th>Discount</th>
-                  <th>Final Price</th>
+                  <th>Total Amount</th>
+                  <th>Paid</th>
+                  <th>Balance</th>
                   <th>Payment Method</th>
                   <th>Actions</th>
                 </tr>
@@ -565,9 +631,9 @@ const Billing = () => {
                         {receipt.lead?.booking?.bookingNumber || receipt.lead?.leadNumber || '-'}
                       </td>
                       <td className="font-medium text-gray-100">{receipt.customerName}</td>
-                      <td className="font-semibold">${(receipt.amount || 0).toLocaleString()}</td>
-                      <td className="text-green-600">-${(receipt.discountValue || 0).toLocaleString()}</td>
-                      <td className="font-semibold text-gold-500">${(receipt.finalAmount || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-gray-400">${(receipt.bookingTotal || 0).toLocaleString()}</td>
+                      <td className="font-bold text-green-400">${(receipt.finalAmount || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-red-500">${(receipt.remainingBalance || 0).toLocaleString()}</td>
                       <td>{receipt.paymentMethod || 'Cash'}</td>
                       <td className="flex gap-2">
                         <Button
@@ -665,13 +731,82 @@ const Billing = () => {
               </div>
               <Button 
                 variant="primary" 
-                onClick={() => window.location.href='/payment-reminders'}
+                onClick={() => handleOpenModal('reminder')}
                 icon={FiPlus}
               >
-                Configure Schedules
+                Create Schedule
               </Button>
             </div>
           </Card>
+
+          {/* Scheduled Reminders List */}
+          {reminders.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {reminders.map((reminder) => (
+                <Card key={reminder._id} className="p-6 border-gold-800/30">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <FiBell className="text-gold-500 w-5 h-5" />
+                        <h3 className="text-lg font-semibold text-gray-100">{reminder.subject}</h3>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          reminder.enabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                        }`}>
+                          {reminder.enabled ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-y-2 text-sm text-gray-400">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gold-500/80">Type:</span>
+                          <span className="capitalize">{reminder.reminderType}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gold-500/80">Days:</span>
+                          <span>{reminder.days} days</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gold-500/80">Frequency:</span>
+                          <span className="capitalize">{reminder.frequency}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gold-500/80">Last Run:</span>
+                          <span>{reminder.lastRun ? new Date(reminder.lastRun).toLocaleDateString() : 'Never'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="small"
+                        onClick={() => handleToggleStatus(reminder)}
+                        title={reminder.enabled ? 'Disable' : 'Enable'}
+                        className={reminder.enabled ? 'text-green-500 border-green-500/30' : 'text-gray-500 border-gray-500/30'}
+                      >
+                        {reminder.enabled ? 'On' : 'Off'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="small"
+                        icon={FiPlus}
+                        onClick={() => handleOpenModal('reminder', reminder)}
+                        title="Edit"
+                      />
+                      <Button
+                        variant="outline"
+                        size="small"
+                        icon={FiTrash2}
+                        onClick={() => handleDelete(reminder._id, 'reminder')}
+                        title="Delete"
+                        className="text-red-500 border-red-500/30"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
 
           <Card>
             <div className="p-4 border-b border-gray-700/50">
@@ -726,7 +861,11 @@ const Billing = () => {
       )}
 
       {/* Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={`${modalType === 'invoice' ? 'Create Invoice' : 'Record Payment'}`}>
+      <Modal 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        title={`${modalType === 'invoice' ? 'Create Invoice' : modalType === 'reminder' ? (formData._id ? 'Edit Reminder' : 'Create Reminder') : 'Record Payment'}`}
+      >
         <form onSubmit={handleSubmit} className="space-y-4">
           {modalType === 'invoice' ? (
             <>
@@ -738,35 +877,141 @@ const Billing = () => {
               />
               <Input
                 label="Invoice Amount"
-                type="number"
+                type="text"
                 value={formData.totalAmount || ''}
                 onChange={(e) => setFormData({...formData, totalAmount: e.target.value})}
                 required
               />
             </>
-          ) : (
+          ) : modalType === 'reminder' ? (
             <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Reminder Type
+                  </label>
+                  <select
+                    className="input-luxury w-full"
+                    value={formData.reminderType}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        reminderType: e.target.value,
+                        template: DEFAULT_REMINDER_TEMPLATES[e.target.value],
+                      });
+                    }}
+                    required
+                  >
+                    <option value="before">Before Due Date</option>
+                    <option value="on">On Due Date</option>
+                    <option value="after">After Due Date (Overdue)</option>
+                  </select>
+                </div>
+
+                <Input
+                  label="Days"
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={formData.days}
+                  onChange={(e) => setFormData({ ...formData, days: e.target.value })}
+                  required
+                  disabled={formData.reminderType === 'on'}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Frequency
+                </label>
+                <select
+                  className="input-luxury w-full"
+                  value={formData.frequency}
+                  onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                  required
+                >
+                  <option value="once">Send Once</option>
+                  <option value="daily">Daily Until Paid</option>
+                  <option value="weekly">Weekly Until Paid</option>
+                </select>
+              </div>
+
               <Input
-                label="Payment Amount"
-                type="number"
-                value={formData.amount || ''}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                label="Email Subject"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="e.g., Payment Reminder"
                 required
               />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email Template
+                </label>
+                <textarea
+                  className="input-luxury w-full"
+                  rows={6}
+                  value={formData.template}
+                  onChange={(e) => setFormData({ ...formData, template: e.target.value })}
+                  placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enabled"
+                  checked={formData.enabled}
+                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="enabled" className="text-sm text-gray-300">
+                  Enable this automated schedule
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="bg-gray-800 p-4 rounded-lg border border-gold-800/30 mb-4 text-white">
+                <p className="text-sm text-gray-400">Payment for</p>
+                <p className="text-xl font-bold text-gold-500">{formData.customerName}</p>
+                <div className="mt-2 flex justify-between border-t border-gray-700 pt-2">
+                  <span className="text-xs text-gray-400 uppercase tracking-wider">Current Balance:</span>
+                  <span className="text-lg font-bold text-red-500">${(formData.amount || 0).toLocaleString()}</span>
+                </div>
+              </div>
+              <Input
+                label="Payment Amount"
+                type="text"
+                value={formData.amountValue || formData.amount || ''}
+                onChange={(e) => setFormData({...formData, amountValue: e.target.value})}
+                required
+              />
+              <p className="text-[10px] text-gray-400 mt-1 italic">Default is remaining balance. You can pay partially.</p>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Payment Method</label>
                 <select
                   className="input-luxury w-full"
-                  value={formData.method || ''}
+                  value={formData.method || 'Cash'}
                   onChange={(e) => setFormData({...formData, method: e.target.value})}
                   required
                 >
-                  <option value="">Select Method</option>
                   <option value="Cash">Cash</option>
-                  <option value="Card">Card</option>
+                  <option value="Credit Card">Credit Card</option>
                   <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Check">Check</option>
+                  <option value="Online Payment">Online Payment</option>
                 </select>
               </div>
+
+              <Input
+                label="Transaction ID / Notes"
+                placeholder="Optional ref #..."
+                value={formData.notes || ''}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+              />
             </>
           )}
           <div className="flex gap-3 pt-4">

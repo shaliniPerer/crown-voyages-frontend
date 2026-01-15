@@ -103,6 +103,36 @@ const DatesGuestsStep = ({
               </div>
             </div>
 
+            {/* Room Availability Info */}
+            {room?.availabilityCalendar && room.availabilityCalendar.length > 0 && (
+              <div className="mb-10 p-4 bg-blue-50 rounded-2xl border border-blue-200">
+                <p className="text-sm font-bold text-blue-900 mb-2">Room Availability Ranges:</p>
+                <div className="space-y-1">
+                  {room.availabilityCalendar.map((a, i) => (
+                    <p key={i} className="text-xs text-blue-700">
+                      • {new Date(a.startDate).toLocaleDateString()} to {new Date(a.endDate).toLocaleDateString()}
+                    </p>
+                  ))}
+                </div>
+                <p className="text-[10px] text-blue-500 mt-2 italic">* Bookings must be within these dates and not overlap with existing bookings.</p>
+              </div>
+            )}
+
+            {/* Room Locked Dates Info */}
+            {room?.bookedDates && room.bookedDates.length > 0 && (
+              <div className="mb-10 p-4 bg-red-50 rounded-2xl border border-red-200">
+                <p className="text-sm font-bold text-red-900 mb-2">Unavailable (Already Booked) Dates:</p>
+                <div className="space-y-1">
+                  {room.bookedDates.map((b, i) => (
+                    <p key={i} className="text-xs text-red-700 font-medium">
+                      ❌ {new Date(b.start).toLocaleDateString()} to {new Date(b.end).toLocaleDateString()}
+                    </p>
+                  ))}
+                </div>
+                <p className="text-[10px] text-red-500 mt-2 italic">* These dates are locked and cannot be booked.</p>
+              </div>
+            )}
+
             {/* Number of Rooms */}
             <div className="mb-10 space-y-3">
               <label className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Number of Rooms</label>

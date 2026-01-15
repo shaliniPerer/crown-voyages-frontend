@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { roomApi } from '../api/roomApi';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 const TravelRoomDetails = () => {
   const { roomId } = useParams();
@@ -34,6 +35,47 @@ const TravelRoomDetails = () => {
       alert('Please select check-in and check-out dates before booking.');
       return;
     }
+
+    const start = new Date(bookingData.checkIn);
+    const end = new Date(bookingData.checkOut);
+
+    if (end <= start) {
+      toast.error('Check-out date must be after check-in date');
+      return;
+    }
+
+    // Frontend validation for availability calendar
+    if (room.availabilityCalendar && room.availabilityCalendar.length > 0) {
+      const isWithinCalendar = room.availabilityCalendar.some(range => {
+        return start >= new Date(range.startDate) && end <= new Date(range.endDate);
+      });
+
+      if (!isWithinCalendar) {
+        toast.error('The selected dates are outside the room\'s availability calendar.');
+        return;
+      }
+    } else {
+      toast.error('This room has no availability set yet.');
+      return;
+    }
+
+    // NEW: Check overlaps with existing bookings
+    if (room.bookedDates && room.bookedDates.length > 0) {
+      const start = new Date(bookingData.checkIn);
+      const end = new Date(bookingData.checkOut);
+      
+      const isOverlapping = room.bookedDates.some(b => {
+        const bStart = new Date(b.start);
+        const bEnd = new Date(b.end);
+        return start < bEnd && end > bStart;
+      });
+
+      if (isOverlapping) {
+        toast.error('The selected dates overlap with an existing booking. Please check Locked Dates.');
+        return;
+      }
+    }
+
     navigate(`/travel/booking/${roomId}`, { state: bookingData });
   };
 
@@ -203,6 +245,42 @@ const TravelRoomDetails = () => {
   <h2 className="text-xl font-semibold text-gray-900 mb-1">
     Book This Room
   </h2>
+
+  {/* Availability Dates Display */}
+  {room.availabilityCalendar && room.availabilityCalendar.length > 0 && (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 my-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Calendar className="w-4 h-4 text-blue-600" />
+        <h3 className="text-sm font-semibold text-blue-900">Available Booking Dates:</h3>
+      </div>
+      <div className="space-y-1">
+        {room.availabilityCalendar.map((a, i) => (
+          <p key={i} className="text-xs text-blue-700">
+             {new Date(a.startDate).toLocaleDateString()} to {new Date(a.endDate).toLocaleDateString()}
+          </p>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {/* Booked Dates Display */}
+  {room.bookedDates && room.bookedDates.length > 0 && (
+    <div className="bg-red-50 border border-red-200 rounded-lg p-3 my-4">
+      <div className="flex items-center gap-2 mb-2">
+        <Calendar className="w-4 h-4 text-red-600" />
+        <h3 className="text-sm font-semibold text-red-900">Already Booked Dates (Locked):</h3>
+      </div>
+      <div className="space-y-1">
+        {room.bookedDates.map((b, i) => (
+          <p key={i} className="text-xs text-red-700 font-medium">
+             ❌ {new Date(b.start).toLocaleDateString()} to {new Date(b.end).toLocaleDateString()}
+          </p>
+        ))}
+      </div>
+      <p className="text-[10px] text-red-500 mt-2 italic">* Please select dates that do not overlap with these ranges.</p>
+    </div>
+  )}
+
   <p className="text-sm text-gray-500 mb-6">
     Select your dates and preferences
   </p>

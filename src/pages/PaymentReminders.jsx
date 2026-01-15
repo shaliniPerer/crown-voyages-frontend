@@ -245,6 +245,7 @@ const PaymentReminders = () => {
   const tabs = [
     { id: 'active', label: 'Active Reminders' },
     { id: 'invoices', label: 'Pending Invoices' },
+    { id: 'overdue', label: 'Overdue (No Reminder)' },
     { id: 'history', label: 'Reminder History' },
   ];
 
@@ -416,7 +417,7 @@ const PaymentReminders = () => {
                           size="small"
                           icon={FiMail}
                           onClick={() => handleSendReminder(invoice)}
-                          disabled={sendingEmail}
+                          disabled={sendingReminder}
                         >
                           Send Reminder
                         </Button>
@@ -669,74 +670,6 @@ const PaymentReminders = () => {
         isOpen={showReminderDraftModal} 
         onClose={() => setShowReminderDraftModal(false)} 
         title="Send Manual Reminder"
-      >
-        <form onSubmit={handleConfirmSendReminder} className="space-y-4">
-          <div className="bg-gold-500/10 p-3 rounded-lg border border-gold-500/20 mb-4">
-            <p className="text-sm text-gold-500">
-              <span className="font-bold">Recipient:</span> {selectedInvoice?.customerName} ({selectedInvoice?.email})
-            </p>
-            <p className="text-sm text-gold-500">
-              <span className="font-bold">Invoice:</span> {selectedInvoice?.invoiceNumber} - ${selectedInvoice?.balance?.toLocaleString()} outstanding
-            </p>
-          </div>
-
-          <Input
-            label="Email Subject"
-            value={reminderDraft.subject}
-            onChange={(e) => setReminderDraft({ ...reminderDraft, subject: e.target.value })}
-            required
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email Template
-            </label>
-            <textarea
-              className="input-luxury w-full"
-              rows={10}
-              value={reminderDraft.template}
-              onChange={(e) => setReminderDraft({ ...reminderDraft, template: e.target.value })}
-              placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
-              required
-            />
-          </div>
-
-          <div className="text-[10px] text-gray-400 bg-luxury-light p-2 rounded border border-gold-800/20">
-            <p className="font-semibold mb-1 uppercase">Available Placeholders:</p>
-            <div className="grid grid-cols-2 gap-x-2">
-              <span>{'{customer_name}'}</span>
-              <span>{'{invoice_number}'}</span>
-              <span>{'{amount}'}</span>
-              <span>{'{due_date}'}</span>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button 
-              type="submit" 
-              variant="primary" 
-              className="flex-1"
-              disabled={sendingReminder}
-            >
-              {sendingReminder ? 'Sending...' : 'Send Reminder Now'}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setShowReminderDraftModal(false)} 
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Reminder Preview Modal */}
-      <Modal 
-        isOpen={showReminderDraftModal} 
-        onClose={() => setShowReminderDraftModal(false)} 
-        title="Send Payment Reminder"
       >
         <form onSubmit={handleConfirmSendReminder} className="space-y-4">
           <div className="bg-gold-500/10 p-3 rounded-lg border border-gold-500/20 mb-4">

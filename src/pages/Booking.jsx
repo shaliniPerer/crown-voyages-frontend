@@ -7,6 +7,7 @@ import Input from '../components/common/Input';
 import { bookingApi } from '../api/bookingApi';
 import { resortApi } from '../api/resortApi';
 import { userApi } from '../api/userApi';
+import { billingApi } from '../api/billingApi';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -30,6 +31,7 @@ const Booking = () => {
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const [leadDocuments, setLeadDocuments] = useState({ quotations: [], invoices: [], receipts: [] });
   const [searchFilters, setSearchFilters] = useState({
@@ -141,8 +143,8 @@ const Booking = () => {
       mealPlan: lead.mealPlan || '',
       specialRequests: lead.specialRequests || '',
       notes: lead.notes || '',
-      totalAmount: lead.totalAmount || 0,
-      paidAmount: lead.paidAmount || 0,
+      totalAmount: lead.totalAmount?.toString() || '',
+      paidAmount: lead.paidAmount?.toString() || '',
       passengerDetails: lead.passengerDetails || [],
     });
     setShowEditModal(true);
@@ -151,11 +153,11 @@ const Booking = () => {
   const handleOpenQuotation = (lead) => {
     setSelectedLead(lead);
     setFormData({ 
-      amount: '', 
+      amount: lead.totalAmount?.toString() || '', 
       items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
       taxRate: 0,
       discountType: 'none',
-      discountValue: 0,
+      discountValue: '',
       notes: '',
       terms: '',
       validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -167,11 +169,11 @@ const Booking = () => {
   const handleOpenInvoice = (lead) => {
     setSelectedLead(lead);
     setFormData({ 
-      amount: '', 
+      amount: lead.totalAmount?.toString() || '', 
       items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
       taxRate: 0,
       discountType: 'none',
-      discountValue: 0,
+      discountValue: '',
       notes: '',
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       sendEmail: false
@@ -179,19 +181,53 @@ const Booking = () => {
     setShowInvoiceModal(true);
   };
 
-  const handleOpenReceipt = (lead) => {
+  const handleOpenReceipt = async (lead) => {
     setSelectedLead(lead);
+    const initialAmount = lead.balance > 0 ? lead.balance : lead.totalAmount;
     setFormData({ 
-      amount: '', 
+      amount: initialAmount?.toString() || '', 
+      bookingTotal: lead.totalAmount?.toString() || '',
       items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
       taxRate: 0,
       discountType: 'none',
-      discountValue: 0,
+      discountValue: '',
       notes: '',
       paymentMethod: 'Cash',
-      sendEmail: false
+      sendEmail: false,
+      invoiceId: ''
     });
     setShowReceiptModal(true);
+
+    try {
+      const invoicesRes = await bookingApi.getInvoices({ lead: lead._id });
+      const currentInvoices = invoicesRes.data.data;
+      
+      // Update leadDocuments so the modal can show them
+      setLeadDocuments(prev => ({ ...prev, invoices: currentInvoices }));
+
+      if (currentInvoices && currentInvoices.length > 0) {
+        // Default to the first unpaid invoice's balance
+        const unpaidInvoice = currentInvoices.find(inv => inv.balance > 0) || currentInvoices[0];
+        setFormData(prev => ({
+          ...prev,
+          amount: unpaidInvoice.balance?.toString() || '0',
+          invoiceId: unpaidInvoice._id
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching invoices for receipt:', error);
+    }
+  };
+
+  const handleOpenPayment = (lead) => {
+    setSelectedLead(lead);
+    setFormData({
+      amount: lead.balance?.toString() || '',
+      paymentMethod: 'Cash',
+      date: new Date().toISOString()?.split('T')[0],
+      notes: ''
+    });
+    setShowPaymentModal(true);
   };
 
   const handleOpenDocuments = async (lead) => {
@@ -299,6 +335,26 @@ const Booking = () => {
     }
   };
 
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await billingApi.recordPayment({
+        lead: selectedLead._id,
+        amount: parseFloat(formData.amount),
+        method: formData.paymentMethod,
+        date: formData.date,
+        notes: formData.notes
+      });
+
+      toast.success('Payment recorded successfully');
+      setShowPaymentModal(false);
+      fetchData(); // Refresh to see updated balance
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to record payment: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
   const handleDeleteLead = async (leadId, leadName) => {
     if (window.confirm(`Are you sure you want to delete lead for ${leadName}? This action cannot be undone.`)) {
       try {
@@ -328,19 +384,22 @@ const Booking = () => {
   const handleQuotationSubmit = async (e) => {
     e.preventDefault();
     try {
-      const finalAmount = (formData.amount || 0) - (formData.discountValue || 0);
+      const amount = parseFloat(formData.amount) || 0;
+      const discountValue = parseFloat(formData.discountValue) || 0;
+      const finalAmount = amount - discountValue;
 
       const quotationData = {
         customerName: selectedLead.guestName,
         email: selectedLead.email,
         phone: selectedLead.phone,
-        amount: formData.amount || 0,
-        discountValue: formData.discountValue || 0,
+        amount,
+        discountValue,
         finalAmount,
         validUntil: formData.validUntil,
         notes: formData.notes,
         terms: formData.terms,
         lead: selectedLead._id,
+        booking: selectedLead.booking?._id || selectedLead.booking,
         sendEmail: formData.sendEmail || false,
       };
       
@@ -379,18 +438,21 @@ const Booking = () => {
   const handleInvoiceSubmit = async (e) => {
     e.preventDefault();
     try {
-      const finalAmount = (formData.amount || 0) - (formData.discountValue || 0);
+      const amount = parseFloat(formData.amount) || 0;
+      const discountValue = parseFloat(formData.discountValue) || 0;
+      const finalAmount = amount - discountValue;
 
       const invoiceData = {
         customerName: selectedLead.guestName,
         email: selectedLead.email,
         phone: selectedLead.phone,
-        amount: formData.amount || 0,
-        discountValue: formData.discountValue || 0,
+        amount,
+        discountValue,
         finalAmount,
         dueDate: formData.dueDate,
         notes: formData.notes,
         lead: selectedLead._id,
+        booking: selectedLead.booking?._id || selectedLead.booking,
       };
       const response = await bookingApi.createInvoice(invoiceData);
       const newInvoice = response.data.data;
@@ -430,18 +492,32 @@ const Booking = () => {
   const handleReceiptSubmit = async (e) => {
     e.preventDefault();
     try {
-      const finalAmount = (formData.amount || 0) - (formData.discountValue || 0);
+      const amount = parseFloat(formData.amount) || 0;
+      const discountValue = parseFloat(formData.discountValue) || 0;
+      const bookingTotal = parseFloat(formData.bookingTotal) || (selectedLead?.totalAmount || 0);
+      const finalAmount = amount - discountValue;
+      
+      // Calculate balance based on whether an invoice is linked or not
+      const outstandingBeforeNow = formData.invoiceId ? 
+        (leadDocuments.invoices.find(i => i._id === formData.invoiceId)?.balance || 0) : 
+        (bookingTotal - (selectedLead?.paidAmount || 0));
+      
+      const remainingBalance = Math.max(0, outstandingBeforeNow - finalAmount);
 
       const receiptData = {
         customerName: selectedLead.guestName,
         email: selectedLead.email,
         phone: selectedLead.phone,
-        amount: formData.amount || 0,
-        discountValue: formData.discountValue || 0,
+        amount,
+        discountValue,
         finalAmount,
+        bookingTotal,
+        remainingBalance,
         paymentMethod: formData.paymentMethod || 'Cash',
         notes: formData.notes,
         lead: selectedLead._id,
+        booking: selectedLead.booking?._id || selectedLead.booking,
+        invoice: formData.invoiceId || undefined,
       };
       const response = await bookingApi.createReceipt(receiptData);
       const newReceipt = response.data.data;
@@ -602,9 +678,8 @@ const Booking = () => {
                   <th>Customer Name</th>
                   <th>Email</th>
                   <th>Phone</th>
-                  <th>Source</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th >Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -646,9 +721,8 @@ const Booking = () => {
                         {new Date(lead.createdAt).toLocaleDateString()}
                       </td>
                       <td className="font-medium text-gray-100">{lead.guestName}</td>
-                      <td>{lead.email}</td>
-                      <td>{lead.phone}</td>
-                      <td>{lead.source}</td>
+                      <td className="text-gray-400 text-sm">{lead.email}</td>
+                      <td className="text-gray-400 text-sm">{lead.phone}</td>
                       <td>
                         <span className={getStatusBadgeColor(lead.status)}>
                           {lead.status}
@@ -661,7 +735,7 @@ const Booking = () => {
                               <select
                                 value={lead.createdBy?._id || lead.createdBy || ''}
                                 onChange={(e) => handleAssignAgent(lead._id, e.target.value)}
-                                className="bg-gray-800 text-gold-500 text-[10px] border border-gray-700 rounded px-1.5 py-0.5 focus:outline-none focus:border-gold-500 w-24 appearance-none cursor-pointer"
+                                className="bg-gray-100 text-gray-900 text-[13px] border border-gray-400 rounded px-1.5 py-0.5 focus:outline-none focus:border-gold-500 w-24 appearance-none cursor-pointer"
                                 title="Assign Agent"
                               >
                                 <option value="">Unassigned</option>
@@ -699,6 +773,14 @@ const Booking = () => {
                             onClick={() => handleOpenInvoice(lead)}
                             className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
                             title="Create Invoice"
+                          >
+                            <FiFileText size={16} />
+                          </button>
+                          <button 
+                            onClick={() => handleOpenPayment(lead)}
+                            className={`p-1.5 rounded transition-colors ${lead.balance > 0 ? 'hover:bg-gold-500/10 text-gray-400 hover:text-gold-500' : 'text-gray-600 cursor-not-allowed'}`}
+                            title="Record Payment"
+                            disabled={!(lead.balance > 0)}
                           >
                             <FiDollarSign size={16} />
                           </button>
@@ -1037,7 +1119,7 @@ const Booking = () => {
               </div>
               <Input
                 label="Amount"
-                type="number"
+                type="text"
                 value={formData.amount || ''}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 required
@@ -1663,21 +1745,19 @@ const Booking = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Total Amount ($)</label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.totalAmount || 0}
-                  onChange={(e) => setFormData({ ...formData, totalAmount: parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  value={formData.totalAmount || ''}
+                  onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })}
+                  placeholder="0.00"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Paid Amount ($)</label>
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.paidAmount || 0}
-                  onChange={(e) => setFormData({ ...formData, paidAmount: parseFloat(e.target.value) || 0 })}
+                  type="text"
+                  value={formData.paidAmount || ''}
+                  onChange={(e) => setFormData({ ...formData, paidAmount: e.target.value })}
+                  placeholder="0.00"
                 />
               </div>
             </div>
@@ -1685,7 +1765,7 @@ const Booking = () => {
               <p className="text-sm">
                 <span className="font-medium text-gray-700">Balance:</span> 
                 <span className="font-bold text-red-600 ml-2">
-                  ${((formData.totalAmount || 0) - (formData.paidAmount || 0)).toFixed(2)}
+                  ${((parseFloat(formData.totalAmount) || 0) - (parseFloat(formData.paidAmount) || 0)).toFixed(2)}
                 </span>
               </p>
             </div>
@@ -1821,11 +1901,9 @@ const Booking = () => {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.amount || 0}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formData.amount || ''}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="Enter base price"
               />
             </div>
@@ -1833,11 +1911,9 @@ const Booking = () => {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.discountValue || 0}
-                onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formData.discountValue || ''}
+                onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
                 placeholder="Enter discount amount"
               />
             </div>
@@ -1846,17 +1922,17 @@ const Booking = () => {
             <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
               <div className="flex justify-between text-sm">
                 <span className="font-medium">Base Price:</span>
-                <span className="text-gold-500 font-bold">${(formData.amount || 0).toFixed(2)}</span>
+                <span className="text-gold-500 font-bold">${(parseFloat(formData.amount) || 0).toFixed(2)}</span>
               </div>
-              {formData.discountValue > 0 && (
+              {(parseFloat(formData.discountValue) > 0) && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span className="font-medium">Discount:</span>
-                  <span>-${(formData.discountValue || 0).toFixed(2)}</span>
+                  <span>-${(parseFloat(formData.discountValue) || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                 <span>Final Price:</span>
-                <span className="text-gold-500">${((formData.amount || 0) - (formData.discountValue || 0)).toFixed(2)}</span>
+                <span className="text-gold-500">${((parseFloat(formData.amount) || 0) - (parseFloat(formData.discountValue) || 0)).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -1953,11 +2029,9 @@ const Booking = () => {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.amount || 0}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formData.amount || ''}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 placeholder="Enter base price"
               />
             </div>
@@ -1965,11 +2039,9 @@ const Booking = () => {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.discountValue || 0}
-                onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) || 0 })}
+                type="text"
+                value={formData.discountValue || ''}
+                onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
                 placeholder="Enter discount amount"
               />
             </div>
@@ -1978,17 +2050,17 @@ const Booking = () => {
             <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
               <div className="flex justify-between text-sm">
                 <span className="font-medium">Base Price:</span>
-                <span className="text-gold-500 font-bold">${(formData.amount || 0).toFixed(2)}</span>
+                <span className="text-gold-500 font-bold">${(parseFloat(formData.amount) || 0).toFixed(2)}</span>
               </div>
-              {formData.discountValue > 0 && (
+              {(parseFloat(formData.discountValue) > 0) && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span className="font-medium">Discount:</span>
-                  <span>-${(formData.discountValue || 0).toFixed(2)}</span>
+                  <span>-${(parseFloat(formData.discountValue) || 0).toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                 <span>Final Price:</span>
-                <span className="text-gold-500">${((formData.amount || 0) - (formData.discountValue || 0)).toFixed(2)}</span>
+                <span className="text-gold-500">${((parseFloat(formData.amount) || 0) - (parseFloat(formData.discountValue) || 0)).toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -2058,7 +2130,7 @@ const Booking = () => {
 
           {/* Payment Method */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Payment Method</label>
+            <label className="block text-sm font-medium text-gray-400 mb-2">Payment Method</label>
             <select
               className="input-luxury w-full"
               value={formData.paymentMethod || 'Cash'}
@@ -2072,50 +2144,115 @@ const Booking = () => {
             </select>
           </div>
 
+          {/* Invoice Selection */}
+          {leadDocuments.invoices && leadDocuments.invoices.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Linked Invoice</label>
+              <select
+                className="input-luxury w-full"
+                value={formData.invoiceId || ''}
+                onChange={(e) => {
+                  const inv = leadDocuments.invoices.find(i => i._id === e.target.value);
+                  setFormData({ 
+                    ...formData, 
+                    invoiceId: e.target.value,
+                    amount: inv ? inv.balance : formData.amount
+                  });
+                }}
+              >
+                <option value="">No Invoice Linked</option>
+                {leadDocuments.invoices.map(inv => (
+                  <option key={inv._id} value={inv._id}>
+                    {inv.invoiceNumber} - ${(inv.balance || 0).toFixed(2)} remaining (Total: ${(inv.finalAmount || 0).toFixed(2)})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gold-600 mt-1 italic">
+                Linking an invoice will pre-fill the receipt amount from the invoice.
+              </p>
+            </div>
+          )}
+
           {/* Price Details */}
           <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
             <h4 className="font-semibold text-gold-600 mb-3">Receipt Details</h4>
             
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 font-bold uppercase tracking-wider">Total Booking Amount</label>
+                <Input
+                  type="text"
+                  value={formData.bookingTotal || ''}
+                  onChange={(e) => setFormData({ ...formData, bookingTotal: e.target.value })}
+                  className="font-bold text-gray-800"
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg border border-green-100 self-end">
+                <p className="text-xs text-green-600 uppercase tracking-wider font-bold">Paid So Far</p>
+                <p className="text-lg font-bold text-green-700 text-right">${(selectedLead?.paidAmount || 0).toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div className="bg-gold-50 p-3 rounded-lg border border-gold-200">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gold-800 font-bold uppercase tracking-wider">
+                  {formData.invoiceId ? 'Invoice Outstanding' : 'Booking Outstanding'}
+                </p>
+                <p className="text-xl font-black text-gold-600">
+                  ${(formData.invoiceId ? 
+                    (leadDocuments.invoices.find(i => i._id === formData.invoiceId)?.balance || 0) : 
+                    ((parseFloat(formData.bookingTotal) || 0) - (selectedLead?.paidAmount || 0))
+                  ).toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            <hr className="border-gray-100" />
+            
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2 font-bold uppercase tracking-wider">Payment Amount</label>
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.amount || 0}
-                onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-                placeholder="Enter base price"
+                type="text"
+                value={formData.amount || ''}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="Enter payment amount"
+                className="text-lg font-bold text-luxury-500"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
+            {/* Hidden discount field if not needed, but keeping logic in case */}
+            <div className="hidden">
               <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.discountValue || 0}
-                onChange={(e) => setFormData({ ...formData, discountValue: parseFloat(e.target.value) || 0 })}
-                placeholder="Enter discount amount"
+                type="text"
+                value={formData.discountValue || ''}
+                onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
               />
             </div>
 
             {/* Summary */}
-            <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">Base Price:</span>
-                <span className="text-gold-500 font-bold">${(formData.amount || 0).toFixed(2)}</span>
+            <div className="bg-gray-900 p-4 rounded-xl space-y-3 mt-4 shadow-lg border-2 border-gold-500/30">
+              <div className="flex justify-between text-sm text-gray-400">
+                <span>Paying Now:</span>
+                <span className="text-white font-bold">${(parseFloat(formData.amount) || 0).toFixed(2)}</span>
               </div>
-              {formData.discountValue > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span className="font-medium">Discount:</span>
-                  <span>-${(formData.discountValue || 0).toFixed(2)}</span>
+              
+              <div className="flex justify-between text-lg font-bold border-t border-gray-700 pt-3 mt-2">
+                <span className="text-gold-500">Balance After Payment:</span>
+                <span className="text-white">
+                  ${Math.max(0, (
+                    (formData.invoiceId ? 
+                      (leadDocuments.invoices.find(i => i._id === formData.invoiceId)?.balance || 0) : 
+                      ((parseFloat(formData.bookingTotal) || 0) - (selectedLead?.paidAmount || 0))
+                    ) - (parseFloat(formData.amount) || 0)
+                  )).toFixed(2)}
+                </span>
+              </div>
+              {((formData.invoiceId ? (leadDocuments.invoices.find(i => i._id === formData.invoiceId)?.balance || 0) : ((parseFloat(formData.bookingTotal) || 0) - (selectedLead?.paidAmount || 0))) - (parseFloat(formData.amount) || 0)) <= 0 && (
+                <div className="bg-green-500/20 text-green-400 text-[10px] py-1 px-2 rounded text-center font-bold uppercase tracking-widest mt-2">
+                  Full Payment Covered
                 </div>
               )}
-              <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                <span>Final Price:</span>
-                <span className="text-gold-500">${((formData.amount || 0) - (formData.discountValue || 0)).toFixed(2)}</span>
-              </div>
             </div>
           </div>
 
@@ -2164,6 +2301,87 @@ const Booking = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Record Payment Modal */}
+      <Modal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} title="Record Payment">
+        <form onSubmit={handlePaymentSubmit} className="space-y-4">
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 rounded-lg p-4 border border-gold-800 mb-6 text-white shadow-xl">
+            <h4 className="text-gold-500 font-semibold text-lg flex items-center">
+              <FiDollarSign className="mr-2" /> Payment for {selectedLead?.guestName}
+            </h4>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div>
+                <p className="text-gray-400 text-xs uppercase">Total Amount</p>
+                <p className="font-bold text-lg text-white">${(selectedLead?.totalAmount || 0).toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs uppercase">Current Balance</p>
+                <p className="text-red-500 font-bold text-lg">${(selectedLead?.balance || 0).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Amount</label>
+              <Input
+                type="text"
+                value={formData.amount || ''}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                placeholder="Enter amount"
+                required
+              />
+              <p className="text-[10px] text-gray-500 mt-1 italic">Default is current balance. You can enter a partial amount.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Date</label>
+              <Input
+                type="date"
+                value={formData.date || ''}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+            <select
+              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-gold-500 focus:border-transparent outline-none transition-all appearance-none"
+              style={{ padding: '0.625rem' }}
+              value={formData.paymentMethod || 'Cash'}
+              onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+              required
+            >
+              <option value="Cash">Cash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Credit Card">Credit Card</option>
+              <option value="Check">Check</option>
+              <option value="Online Payment">Online Payment</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+            <textarea
+              className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-gold-500 focus:border-transparent outline-none transition-all"
+              rows="3"
+              value={formData.notes || ''}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Additional payment details (e.g., transaction ID, bank ref)..."
+            />
+          </div>
+
+          <div className="flex gap-3 pt-6 border-t border-gray-100 mt-4">
+            <Button type="submit" variant="primary" className="flex-1">
+              Record Payment
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowPaymentModal(false)} className="flex-1">
+              Cancel
+            </Button>
+          </div>
+        </form>
       </Modal>
 
       {/* Documents Modal */}

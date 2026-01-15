@@ -88,4 +88,15 @@
   .badge-pink {
     @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-pink-900/30 text-pink-400 border border-pink-700/50;
   }
+
+  /* Hide number input spin buttons (up/down arrows) */
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance: textfield;
+  }
 }

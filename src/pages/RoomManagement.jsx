@@ -259,13 +259,14 @@ const RoomManagement = () => {
               <th className="px-4 py-2 text-left text-gray-900">Resort Name</th>
               <th className="px-4 py-2 text-left text-gray-900">Room Name</th>
               <th className="px-4 py-2 text-left text-gray-900">Type</th>
+              <th className="px-4 py-2 text-left text-gray-900">Availability</th>
               <th className="px-4 py-2 text-left text-gray-900">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rooms.length === 0 && (
               <tr>
-                <td colSpan="5" className="text-center p-4">No rooms found</td>
+                <td colSpan="6" className="text-center p-4">No rooms found</td>
               </tr>
             )}
             {rooms.map((room, idx) => (
@@ -274,7 +275,19 @@ const RoomManagement = () => {
                 <td className="px-4 py-2">{room.resort?.name || 'Unknown'}</td>
                 <td className="px-4 py-2 ">{room.roomName}</td>
                 <td className="px-4 py-2">{room.roomType}</td>
-                <td className="px-4 py-2 flex gap-2">
+                <td className="px-4 py-2">
+                  {room.availabilityCalendar && room.availabilityCalendar.length > 0 ? (
+                    <div className="text-xs text-gray-600">
+                      {room.availabilityCalendar.slice(0, 2).map((a, i) => (
+                        <div key={i}>{new Date(a.startDate).toLocaleDateString()} - {new Date(a.endDate).toLocaleDateString()}</div>
+                      ))}
+                      {room.availabilityCalendar.length > 2 && <div>+{room.availabilityCalendar.length - 2} more...</div>}
+                    </div>
+                  ) : (
+                    <span className="text-red-500 text-xs font-semibold">No availability set</span>
+                  )}
+                </td>
+                <td className="px-4 py-2 flex gap-2 text-gray-900">
                   <Button size="small" icon={FiUsers} onClick={() => openProfile(room)}>Profile</Button>
                   <Button size="small" icon={FiEdit} onClick={() => openModal(room)}>Edit</Button>
                   <Button size="small" icon={FiTrash2} variant="outline" onClick={() => handleDelete(room._id)}>Delete</Button>
