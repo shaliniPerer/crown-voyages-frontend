@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2, FiFolder, FiDownload } from 'react-icons/fi';
+import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2, FiFolder, FiDownload, FiUserCheck } from 'react-icons/fi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { bookingApi } from '../api/bookingApi';
 import { resortApi } from '../api/resortApi';
+import { userApi } from '../api/userApi';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { formatDate, calculateNights } from '../utils/bookingUtils';
 
 
 const Booking = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('leads');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -19,6 +22,7 @@ const Booking = () => {
   const [quotations, setQuotations] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [resorts, setResorts] = useState([]);
+  const [users, setUsers] = useState([]);
   const [formData, setFormData] = useState({});
   const [selectedLead, setSelectedLead] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -48,7 +52,10 @@ const Booking = () => {
   useEffect(() => {
     fetchData();
     fetchResorts();
-  }, [activeTab]);
+    if (user?.role === 'Admin') {
+      fetchUsers();
+    }
+  }, [activeTab, user]);
 
   // Also fetch data when component mounts
   useEffect(() => {
@@ -72,12 +79,36 @@ const Booking = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await userApi.getUsers();
+      // Filter for Admin and Sales Agent roles
+      const filteredUsers = (res.data.data || res.data || []).filter(u => 
+        u.role === 'Admin' || u.role === 'Sales Agent'
+      );
+      setUsers(filteredUsers);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   const fetchResorts = async () => {
     try {
       const res = await resortApi.getResorts();
       setResorts(res.data);
     } catch (error) {
       console.error('Error fetching resorts:', error);
+    }
+  };
+
+  const handleAssignAgent = async (leadId, userId) => {
+    try {
+      await bookingApi.updateLead(leadId, { createdBy: userId });
+      toast.success('Agent assigned successfully');
+      fetchData();
+    } catch (error) {
+      console.error('Error assigning agent:', error);
+      toast.error('Failed to assign agent');
     }
   };
 
@@ -625,6 +656,24 @@ const Booking = () => {
                       </td>
                       <td>
                         <div className="flex gap-1 items-center">
+                          {user?.role === 'Admin' && (
+                            <div className="relative group mr-2">
+                              <select
+                                value={lead.createdBy?._id || lead.createdBy || ''}
+                                onChange={(e) => handleAssignAgent(lead._id, e.target.value)}
+                                className="bg-gray-800 text-gold-500 text-[10px] border border-gray-700 rounded px-1.5 py-0.5 focus:outline-none focus:border-gold-500 w-24 appearance-none cursor-pointer"
+                                title="Assign Agent"
+                              >
+                                <option value="">Unassigned</option>
+                                {users.map(u => (
+                                  <option key={u._id} value={u._id}>{u.name}</option>
+                                ))}
+                              </select>
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-1 pointer-events-none text-gray-500 group-hover:text-gold-500">
+                                <FiUserCheck size={10} />
+                              </div>
+                            </div>
+                          )}
                           <button 
                             onClick={() => handleOpenProfile(lead)}
                             className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
