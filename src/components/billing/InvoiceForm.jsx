@@ -16,6 +16,9 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
     email: invoice?.email || '',
     phone: invoice?.phone || '',
     totalAmount: invoice?.totalAmount || '',
+    totalNetAmount: invoice?.totalNetAmount || 0,
+    greenTax: invoice?.greenTax || 0,
+    tgst: invoice?.tgst || 0,
     taxAmount: invoice?.taxAmount || 0,
     discountAmount: invoice?.discountAmount || 0,
     dueDate: invoice?.dueDate || '',
@@ -39,7 +42,16 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newState = { ...prev, [name]: value };
+      
+      // Auto-calculate T-GST if totalNetAmount changes
+      if (name === 'totalNetAmount') {
+        const net = parseFloat(value) || 0;
+        newState.tgst = (net * 0.17).toFixed(2);
+      }
+      return newState;
+    });
   };
 
   const handleBookingSelect = (e) => {
@@ -53,7 +65,9 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
         customerName: selectedBooking.guestName,
         email: selectedBooking.email,
         phone: selectedBooking.phone,
-        totalAmount: selectedBooking.totalAmount
+        totalAmount: selectedBooking.totalAmount,
+        totalNetAmount: selectedBooking.totalAmount,
+        tgst: (parseFloat(selectedBooking.totalAmount) * 0.17).toFixed(2)
       }));
     } else {
       setFormData(prev => ({ ...prev, booking: bookingId }));
@@ -61,10 +75,11 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
   };
 
   const calculateFinalAmount = () => {
-    const total = parseFloat(formData.totalAmount) || 0;
-    const tax = parseFloat(formData.taxAmount) || 0;
+    const net = parseFloat(formData.totalNetAmount) || 0;
+    const greenTax = parseFloat(formData.greenTax) || 0;
+    const tgst = parseFloat(formData.tgst) || 0;
     const discount = parseFloat(formData.discountAmount) || 0;
-    return (total + tax - discount).toFixed(2);
+    return (net + greenTax + tgst - discount).toFixed(2);
   };
 
   const handleSubmit = async (e) => {
@@ -74,9 +89,13 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
     try {
       const invoiceData = {
         ...formData,
-        totalAmount: parseFloat(formData.totalAmount),
-        taxAmount: parseFloat(formData.taxAmount),
+        amount: parseFloat(formData.totalNetAmount), // Backend uses 'amount' for subtotal
+        totalAmount: parseFloat(formData.totalNetAmount),
+        totalNetAmount: parseFloat(formData.totalNetAmount),
+        greenTax: parseFloat(formData.greenTax),
+        tgst: parseFloat(formData.tgst),
         discountAmount: parseFloat(formData.discountAmount),
+        discountValue: parseFloat(formData.discountAmount), // Backend uses discountValue
         finalAmount: parseFloat(calculateFinalAmount())
       };
 
@@ -168,27 +187,36 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
       {/* Invoice Amounts */}
       <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
         <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">
-          Invoice Amounts
+          Financial Details
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
-            label="Subtotal ($)"
-            name="totalAmount"
+            label="Total Net Amount ($)"
+            name="totalNetAmount"
             type="number"
             step="0.01"
             min="0"
-            value={formData.totalAmount}
+            value={formData.totalNetAmount}
             onChange={handleChange}
             icon={FiDollarSign}
             required
           />
           <Input
-            label="Tax ($)"
-            name="taxAmount"
+            label="Green Tax ($)"
+            name="greenTax"
             type="number"
             step="0.01"
             min="0"
-            value={formData.taxAmount}
+            value={formData.greenTax}
+            onChange={handleChange}
+          />
+          <Input
+            label="T-GST 17.00% ($)"
+            name="tgst"
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.tgst}
             onChange={handleChange}
           />
           <Input
@@ -205,7 +233,7 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
         {/* Final Amount Display */}
         <div className="pt-4 border-t border-gold-800/20">
           <div className="flex items-center justify-between">
-            <span className="text-lg font-semibold text-gray-300">Total Amount:</span>
+            <span className="text-lg font-semibold text-gray-700">GRAND TOTAL (TAXES INCLUDED):</span>
             <span className="text-2xl font-bold text-gold-500">
               ${calculateFinalAmount()}
             </span>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FiPlus, FiFileText, FiMail, FiDollarSign, FiDownload, FiTrash2, FiPrinter, FiEye, FiBell } from 'react-icons/fi';
+import { HiTicket } from 'react-icons/hi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -15,9 +16,11 @@ const Billing = () => {
   const [quotations, setQuotations] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [receipts, setReceipts] = useState([]);
+  const [vouchers, setVouchers] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [reminders, setReminders] = useState([]);
-  const [reminderHistory, setReminderHistory] = useState([]);
+  const [reminderConfig, setReminderConfig] = useState([]);
+  const [activeReminderTab, setActiveReminderTab] = useState('manual'); // 'manual', 'automation', 'history'
+  const [invoiceHistory, setInvoiceHistory] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
@@ -55,25 +58,9 @@ const Billing = () => {
         // Fetch receipts from bookingApi (created in Booking Management)
         const res = await bookingApi.getReceipts?.() || { data: [] };
         setReceipts(res.data.data || res.data || []);
-      } else if (activeTab === 'payments') {
-        const res = await billingApi.getPayments();
-        setPayments(res.data.data || res.data || []);
-      } else if (activeTab === 'reminders') {
-        const [historyRes, remindersRes] = await Promise.all([
-          billingApi.getHistory(),
-          billingApi.getReminders()
-        ]);
-        
-        const logs = historyRes.data.data || historyRes.data || [];
-        setReminders(remindersRes.data.data || remindersRes.data || []);
-        
-        // Filter only reminder-related logs or email sends
-        const history = logs.filter(log => 
-          log.description?.toLowerCase().includes('reminder') || 
-          log.action === 'send_email' ||
-          log.resource === 'reminder'
-        );
-        setReminderHistory(history);
+      } else if (activeTab === 'vouchers') {
+        const res = await bookingApi.getVouchers?.() || { data: [] };
+        setVouchers(res.data.data || res.data || []);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -142,6 +129,11 @@ const Billing = () => {
         await bookingApi.deleteInvoice(id);
       } else if (type === 'receipt') {
         await bookingApi.deleteReceipt(id);
+      } else if (type === 'voucher') {
+        // You might want to add a deleteVoucher endpoint if needed
+        // For now let's assume it's just viewing/listing
+        toast.info("Deletion for vouchers is currently restricted");
+        return;
       } else if (type === 'reminder') {
         await billingApi.deleteReminder(id);
       }
@@ -191,6 +183,8 @@ const Billing = () => {
         await bookingApi.sendInvoiceEmail(id);
       } else if (type === 'receipt') {
         await bookingApi.sendPaymentReceiptEmail(id);
+      } else if (type === 'voucher') {
+        await bookingApi.sendVoucherEmail(id);
       }
       toast.success('Email sent successfully');
     } catch (error) {
@@ -213,6 +207,9 @@ const Billing = () => {
       } else if (type === 'receipt') {
         response = await bookingApi.exportReceiptPDF(id);
         filename = `receipt-${id}.pdf`;
+      } else if (type === 'voucher') {
+        response = await bookingApi.exportVoucherPDF(id);
+        filename = `voucher-${id}.pdf`;
       }
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -237,6 +234,8 @@ const Billing = () => {
         response = await bookingApi.exportInvoicePDF(item._id);
       } else if (type === 'receipt') {
         response = await bookingApi.exportReceiptPDF(item._id);
+      } else if (type === 'voucher') {
+        response = await bookingApi.exportVoucherPDF(item._id);
       }
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
@@ -260,19 +259,29 @@ const Billing = () => {
       let subject = `Payment Reminder for Invoice ${invoice.invoiceNumber}`;
       let template = DEFAULT_REMINDER_TEMPLATES[type] || DEFAULT_REMINDER_TEMPLATES.before;
 
-      try {
-        const res = await billingApi.getReminders();
-        const activeReminders = res.data.data || res.data || [];
-        const matchingReminder = activeReminders.find(r => r.enabled && r.reminderType === type);
-        if (matchingReminder) {
-          subject = matchingReminder.subject;
-          template = matchingReminder.template;
-        }
-      } catch (e) {
-        console.log("Could not fetch configured reminders, using default");
+      // Fetch global configs and historical logs for this invoice
+      const [remRes, historyRes] = await Promise.all([
+        billingApi.getReminders(),
+        billingApi.getHistory()
+      ]);
+
+      const globalReminders = remRes.data.data || remRes.data || [];
+      const matchingReminder = globalReminders.find(r => r.enabled && r.reminderType === type);
+      if (matchingReminder) {
+        subject = matchingReminder.subject;
+        template = matchingReminder.template;
       }
 
+      const allLogs = historyRes.data.data || historyRes.data || [];
+      const invoiceSpecificLogs = allLogs.filter(log => 
+        log.resourceId === invoice._id || 
+        log.description?.includes(invoice.invoiceNumber)
+      );
+
+      setReminderConfig(globalReminders);
+      setInvoiceHistory(invoiceSpecificLogs);
       setSelectedInvoice(invoice);
+      setActiveReminderTab('manual');
       setReminderDraft({
         subject,
         template,
@@ -306,12 +315,22 @@ const Billing = () => {
     }
   };
 
+  const handleUpdateInvoiceReminders = async (enabled) => {
+    try {
+      await billingApi.updateInvoice(selectedInvoice._id, { remindersEnabled: enabled });
+      setSelectedInvoice({ ...selectedInvoice, remindersEnabled: enabled });
+      toast.success(`Automated reminders ${enabled ? 'enabled' : 'disabled'} for this invoice`);
+      fetchData(); // Refresh list to keep state in sync
+    } catch (error) {
+      toast.error('Failed to update automation settings');
+    }
+  };
+
   const tabs = [
     { id: 'quotations', label: 'Quotations' },
     { id: 'invoices', label: 'Invoices' },
     { id: 'receipts', label: 'Receipts' },
-    { id: 'payments', label: 'Payments' },
-    { id: 'reminders', label: 'Reminders' },
+    { id: 'vouchers', label: 'Vouchers' },
   ];
 
   return (
@@ -323,6 +342,9 @@ const Billing = () => {
           <p className="text-gray-900 mt-1">Manage quotations, invoices, receipts</p>
         </div>
         <div className="flex gap-3">
+          <Button variant="outline" icon={FiBell} onClick={() => window.location.href='/payment-reminders'} title="Configure Automated Schedules">
+            Reminders
+          </Button>
           <Button variant="outline" icon={FiPrinter} onClick={() => setShowReportModal(true)}>
             Reports
           </Button>
@@ -535,7 +557,11 @@ const Billing = () => {
                           variant="outline"
                           size="small"
                           icon={FiDollarSign}
-                          onClick={() => handleOpenModal('payment', { invoice: invoice._id, amount: invoice.balance, customerName: invoice.customerName })}
+                          onClick={() => handleOpenModal('payment', { 
+                            invoice: invoice._id, 
+                            amount: invoice.lead?.balance || invoice.balance, 
+                            customerName: invoice.customerName 
+                          })}
                           title="Record Payment"
                           className="text-green-500 border-green-500 hover:bg-green-500/10"
                           disabled={invoice.status === 'Paid'}
@@ -860,6 +886,95 @@ const Billing = () => {
         </div>
       )}
 
+      {/* Vouchers Tab */}
+      {activeTab === 'vouchers' && (
+        <Card>
+          <div className="overflow-x-auto">
+            <table className="table-luxury">
+              <thead>
+                <tr>
+                  <th>Voucher ID</th>
+                  <th>Date</th>
+                  <th>Booking Ref</th>
+                  <th>Customer</th>
+                  <th>Resort</th>
+                  <th>Room</th>
+                  <th>Check-In</th>
+                  <th>Check-Out</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vouchers.filter(voucher => {
+                  const matchDate = !billingFilters.date || new Date(voucher.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                  const docId = voucher.voucherId || '';
+                  const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                  const bookingRef = voucher.lead?.booking?.bookingNumber || voucher.lead?.leadNumber || '';
+                  const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                  
+                  return matchDate && matchDocId && matchBookingId;
+                }).length > 0 ? (
+                  vouchers.filter(voucher => {
+                    const matchDate = !billingFilters.date || new Date(voucher.createdAt).toLocaleDateString('en-CA') === billingFilters.date;
+                    const docId = voucher.voucherId || '';
+                    const matchDocId = !billingFilters.docId || docId.toLowerCase().includes(billingFilters.docId.toLowerCase());
+                    const bookingRef = voucher.lead?.booking?.bookingNumber || voucher.lead?.leadNumber || '';
+                    const matchBookingId = !billingFilters.bookingId || bookingRef.toLowerCase().includes(billingFilters.bookingId.toLowerCase());
+                    
+                    return matchDate && matchDocId && matchBookingId;
+                  }).map((voucher) => (
+                    <tr key={voucher._id}>
+                      <td className="font-mono text-gold-500">{voucher.voucherId}</td>
+                      <td className="text-gray-400 text-sm">
+                        {new Date(voucher.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="font-mono text-gray-300">
+                        {voucher.lead?.booking?.bookingNumber || voucher.lead?.leadNumber || '-'}
+                      </td>
+                      <td className="font-medium text-gray-100">{voucher.customerName}</td>
+                      <td className="text-gray-300">{voucher.resort?.name || 'N/A'}</td>
+                      <td className="text-gray-400 text-sm">{voucher.room?.name || 'N/A'}</td>
+                      <td className="text-gray-400 text-sm">{new Date(voucher.checkIn).toLocaleDateString()}</td>
+                      <td className="text-gray-400 text-sm">{new Date(voucher.checkOut).toLocaleDateString()}</td>
+                      <td className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiEye}
+                          onClick={() => handleView(voucher, 'voucher')}
+                          title="View PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiDownload}
+                          onClick={() => handleExportPDF(voucher._id, 'voucher')}
+                          title="Download PDF"
+                        />
+                        <Button
+                          variant="outline"
+                          size="small"
+                          icon={FiMail}
+                          onClick={() => handleSendEmail(voucher._id, 'voucher')}
+                          title="Send Email"
+                        />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="9" className="text-center text-gray-400 py-12">
+                      <HiTicket className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                      No vouchers found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       {/* Modal */}
       <Modal 
         isOpen={showModal} 
@@ -882,6 +997,16 @@ const Billing = () => {
                 onChange={(e) => setFormData({...formData, totalAmount: e.target.value})}
                 required
               />
+              <div className="flex flex-col space-y-2">
+                <label className="text-sm font-medium text-gray-300">Due Date</label>
+                <input
+                  type="date"
+                  className="input-luxury w-full"
+                  value={formData.dueDate || ''}
+                  onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
+                  required
+                />
+              </div>
             </>
           ) : modalType === 'reminder' ? (
             <>
@@ -1068,68 +1193,224 @@ const Billing = () => {
       <Modal 
         isOpen={showReminderDraftModal} 
         onClose={() => setShowReminderDraftModal(false)} 
-        title="Send Payment Reminder"
+        title={`Payment Reminders - ${selectedInvoice?.invoiceNumber}`}
+        maxWidth="2xl"
       >
-        <form onSubmit={handleConfirmSendReminder} className="space-y-4">
-          <div className="bg-gold-500/10 p-3 rounded-lg border border-gold-500/20 mb-4">
-            <p className="text-sm text-gold-500">
-              <span className="font-bold">Recipient:</span> {selectedInvoice?.customerName} ({selectedInvoice?.email})
-            </p>
-            <p className="text-sm text-gold-500">
-              <span className="font-bold">Invoice:</span> {selectedInvoice?.invoiceNumber} - ${selectedInvoice?.balance?.toLocaleString()} outstanding
-            </p>
-          </div>
+        <div className="flex border-b border-gold-800/30 mb-4">
+          <button 
+            onClick={() => setActiveReminderTab('manual')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${activeReminderTab === 'manual' ? 'text-gold-500 border-b-2 border-gold-500' : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            Manual Send
+          </button>
+          <button 
+            onClick={() => setActiveReminderTab('automation')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${activeReminderTab === 'automation' ? 'text-gold-500 border-b-2 border-gold-500' : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            Automation Settings
+          </button>
+          <button 
+            onClick={() => setActiveReminderTab('history')}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${activeReminderTab === 'history' ? 'text-gold-500 border-b-2 border-gold-500' : 'text-gray-400 hover:text-gray-200'}`}
+          >
+            History
+          </button>
+        </div>
 
-          <Input
-            label="Email Subject"
-            value={reminderDraft.subject}
-            onChange={(e) => setReminderDraft({ ...reminderDraft, subject: e.target.value })}
-            required
-          />
+        {activeReminderTab === 'manual' && (
+          <form onSubmit={handleConfirmSendReminder} className="space-y-4">
+            <div className="bg-gold-500/10 p-3 rounded-lg border border-gold-500/20 mb-4 text-xs">
+              <p className="text-gold-500">
+                <span className="font-bold">Recipient:</span> {selectedInvoice?.customerName} ({selectedInvoice?.email}) | 
+                <span className="font-bold ml-2">Balance:</span> ${selectedInvoice?.balance?.toLocaleString()}
+              </p>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email Template
-            </label>
-            <textarea
-              className="input-luxury w-full"
-              rows={10}
-              value={reminderDraft.template}
-              onChange={(e) => setReminderDraft({ ...reminderDraft, template: e.target.value })}
-              placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
+            <Input
+              label="Email Subject"
+              value={reminderDraft.subject}
+              onChange={(e) => setReminderDraft({ ...reminderDraft, subject: e.target.value })}
               required
             />
-          </div>
 
-          <div className="text-[10px] text-gray-400 bg-luxury-light p-2 rounded border border-gold-800/20">
-            <p className="font-semibold mb-1 uppercase">Available Placeholders:</p>
-            <div className="grid grid-cols-2 gap-x-2">
-              <span>{'{customer_name}'}</span>
-              <span>{'{invoice_number}'}</span>
-              <span>{'{amount}'}</span>
-              <span>{'{due_date}'}</span>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email Template
+              </label>
+              <textarea
+                className="input-luxury w-full text-sm"
+                rows={8}
+                value={reminderDraft.template}
+                onChange={(e) => setReminderDraft({ ...reminderDraft, template: e.target.value })}
+                placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
+                required
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                type="submit" 
+                variant="primary" 
+                className="flex-1 text-sm py-2"
+                disabled={sendingReminder}
+              >
+                {sendingReminder ? 'Sending...' : 'Send Manual Reminder Now'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {activeReminderTab === 'automation' && (
+          <div className="space-y-6 py-2">
+            <div className="bg-luxury-light p-4 rounded-lg border border-gold-800/30">
+              <label className="block text-sm font-medium text-gold-500 mb-2 uppercase tracking-wider">
+                Base Due Date
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  className="input-luxury flex-1 text-sm h-10"
+                  value={selectedInvoice?.dueDate ? new Date(selectedInvoice.dueDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setSelectedInvoice({ ...selectedInvoice, dueDate: newDate });
+                    billingApi.updateInvoice(selectedInvoice._id, { dueDate: newDate });
+                    toast.success('Due date updated');
+                    fetchData();
+                  }}
+                />
+                <div className="bg-black/40 px-3 py-1 rounded border border-gold-800/20 flex flex-col justify-center min-w-[100px] text-center">
+                  <span className="text-[10px] text-gray-500 uppercase">Automation</span>
+                  <button
+                    onClick={() => handleUpdateInvoiceReminders(!selectedInvoice?.remindersEnabled)}
+                    className={`text-xs font-bold uppercase transition-colors ${selectedInvoice?.remindersEnabled ? 'text-green-500 hover:text-green-400' : 'text-red-500 hover:text-red-400'}`}
+                  >
+                    {selectedInvoice?.remindersEnabled ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h5 className="text-xs font-bold text-gold-500 uppercase tracking-widest px-1">Configured Schedules</h5>
+              {reminderConfig.filter(r => r.enabled).length > 0 ? (
+                reminderConfig.filter(r => r.enabled).map(rem => {
+                  const invRemConfig = selectedInvoice?.reminderConfigs?.[rem.reminderType] || { days: rem.days, frequency: rem.frequency, enabled: true };
+                  
+                  return (
+                    <div key={rem._id} className="p-4 bg-black/40 border border-gray-800 rounded-lg space-y-3 shadow-inner">
+                      <div className="flex items-center justify-between border-b border-gray-800 pb-2 mb-2">
+                        <span className="text-gray-200 font-semibold capitalize flex items-center gap-2">
+                          <FiBell className="w-3 h-3 text-gold-500" />
+                          {rem.reminderType} Due Date
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <label className="text-[10px] text-gray-500 uppercase">Frequency</label>
+                          <select 
+                            className="bg-black/60 border border-gold-800/30 rounded text-[10px] text-gold-500 px-1 py-1 focus:outline-none"
+                            value={invRemConfig.frequency}
+                            onChange={(e) => {
+                              const newConfigs = { 
+                                ...(selectedInvoice.reminderConfigs || {}),
+                                [rem.reminderType]: { ...invRemConfig, frequency: e.target.value } 
+                              };
+                              setSelectedInvoice({ ...selectedInvoice, reminderConfigs: newConfigs });
+                              billingApi.updateInvoice(selectedInvoice._id, { reminderConfigs: newConfigs });
+                              toast.success('Frequency updated');
+                            }}
+                          >
+                            <option value="once">Once</option>
+                            <option value="twice">Twice</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1 space-y-1">
+                          <label className="text-[10px] text-gray-500 uppercase block">Send On Specfic Date</label>
+                          <input
+                            type="date"
+                            className="input-luxury w-full text-[12px] h-8"
+                            disabled={!selectedInvoice?.dueDate || rem.reminderType === 'on'}
+                            value={selectedInvoice?.dueDate ? (() => {
+                              const d = new Date(selectedInvoice.dueDate);
+                              const days = invRemConfig.days;
+                              if (rem.reminderType === 'before') d.setDate(d.getDate() - parseInt(days));
+                              else if (rem.reminderType === 'after') d.setDate(d.getDate() + parseInt(days));
+                              return d.toISOString().split('T')[0];
+                            })() : ''}
+                            onChange={(e) => {
+                              const newSendDate = new Date(e.target.value);
+                              const dueDate = new Date(selectedInvoice.dueDate);
+                              let diffDays = 0;
+                              
+                              if (rem.reminderType === 'before') {
+                                diffDays = Math.round((dueDate - newSendDate) / (1000 * 60 * 60 * 24));
+                              } else if (rem.reminderType === 'after') {
+                                diffDays = Math.round((newSendDate - dueDate) / (1000 * 60 * 60 * 24));
+                              }
+
+                              if (diffDays < 0) {
+                                toast.warning(`Invalid date for ${rem.reminderType} reminder`);
+                                return;
+                              }
+
+                              const newConfigs = { 
+                                ...(selectedInvoice.reminderConfigs || {}),
+                                [rem.reminderType]: { ...invRemConfig, days: diffDays } 
+                              };
+                              
+                              setSelectedInvoice({ ...selectedInvoice, reminderConfigs: newConfigs });
+                              billingApi.updateInvoice(selectedInvoice._id, { reminderConfigs: newConfigs });
+                              toast.success('Send date updated');
+                              fetchData();
+                            }}
+                          />
+                        </div>
+                        <div className="text-right min-w-[80px]">
+                          <span className="text-[10px] text-gray-500 uppercase block">Relative</span>
+                          <span className="text-xs text-gold-500 font-bold">
+                            {invRemConfig.days} days {rem.reminderType}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-6 text-gray-500 text-sm italic">
+                  No automated schedules are globally enabled.
+                </div>
+              )}
             </div>
           </div>
+        )}
 
-          <div className="flex gap-3 pt-4">
-            <Button 
-              type="submit" 
-              variant="primary" 
-              className="flex-1"
-              disabled={sendingReminder}
-            >
-              {sendingReminder ? 'Sending...' : 'Send Reminder Now'}
-            </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setShowReminderDraftModal(false)} 
-              className="flex-1"
-            >
-              Cancel
-            </Button>
+        {activeReminderTab === 'history' && (
+          <div className="max-h-[400px] overflow-y-auto pr-2">
+            {invoiceHistory.length > 0 ? (
+              <div className="space-y-3">
+                {invoiceHistory.map((log) => (
+                  <div key={log._id} className="p-3 bg-luxury-light rounded border border-gray-800 text-xs">
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="font-bold text-gold-500 uppercase">{log.action.replace('_', ' ')}</span>
+                      <span className="text-gray-500">{new Date(log.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="text-gray-300">{log.description}</p>
+                    <div className="mt-1 text-gray-500 text-[10px]">By: {log.user?.name || 'System'}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <FiMail className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p>No reminder history for this invoice.</p>
+              </div>
+            )}
           </div>
-        </form>
+        )}
       </Modal>
     </div>
   );

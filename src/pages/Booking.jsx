@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2, FiFolder, FiDownload, FiUserCheck } from 'react-icons/fi';
+import { FiPlus, FiMail, FiFileText, FiEye, FiEdit, FiDollarSign, FiFile, FiUser, FiUsers, FiPhone, FiMapPin, FiTrash2, FiFolder, FiDownload, FiUserCheck, FiCheckCircle } from 'react-icons/fi';
+import { HiTicket } from 'react-icons/hi';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
@@ -31,6 +32,8 @@ const Booking = () => {
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [voucherOptions, setVoucherOptions] = useState({ download: true, email: true });
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDocumentsModal, setShowDocumentsModal] = useState(false);
   const [leadDocuments, setLeadDocuments] = useState({ quotations: [], invoices: [], receipts: [] });
@@ -168,12 +171,17 @@ const Booking = () => {
 
   const handleOpenInvoice = (lead) => {
     setSelectedLead(lead);
+    const amount = lead.totalAmount?.toString() || '';
+    const tgst = amount ? (parseFloat(amount) * 0.17).toFixed(2) : '0.00';
     setFormData({ 
-      amount: lead.totalAmount?.toString() || '', 
+      amount: amount, 
+      totalNetAmount: amount,
+      greenTax: '0',
+      tgst: tgst,
       items: [{ description: '', quantity: 1, unitPrice: 0, totalPrice: 0 }],
       taxRate: 0,
       discountType: 'none',
-      discountValue: '',
+      discountValue: '0',
       notes: '',
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       sendEmail: false
@@ -219,6 +227,54 @@ const Booking = () => {
     }
   };
 
+  const handleOpenVoucher = (lead) => {
+    setSelectedLead(lead);
+    setFormData({
+      customerName: lead.guestName,
+      email: lead.email,
+      resortName: lead.resort?.name || '',
+      roomName: lead.room?.roomName || lead.room?.roomType || '',
+      checkIn: lead.checkIn,
+      checkOut: lead.checkOut
+    });
+    setVoucherOptions({ download: true, email: true });
+    setShowVoucherModal(true);
+  };
+
+  const handleVoucherSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const voucherData = {
+        lead: selectedLead._id,
+        customerName: formData.customerName,
+        email: formData.email,
+        resortName: formData.resortName,
+        roomName: formData.roomName,
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut
+      };
+
+      const res = await bookingApi.createVoucher(voucherData);
+      const voucher = res.data.data;
+      
+      toast.success('Voucher created successfully');
+      setShowVoucherModal(false);
+
+      if (voucherOptions.download) {
+        handleDownloadDocument('voucher', selectedLead._id, selectedLead.leadNumber || voucher.voucherNumber);
+      }
+
+      if (voucherOptions.email) {
+        handleSendVoucherEmail(selectedLead._id);
+      }
+
+      fetchData();
+    } catch (error) {
+      console.error('Error creating voucher:', error);
+      toast.error(error.response?.data?.message || 'Voucher creation failed');
+    }
+  };
+
   const handleOpenPayment = (lead) => {
     setSelectedLead(lead);
     setFormData({
@@ -260,6 +316,7 @@ const Booking = () => {
       if (type === 'quotation') response = await bookingApi.exportQuotationPDF(id);
       else if (type === 'invoice') response = await bookingApi.exportInvoicePDF(id);
       else if (type === 'receipt') response = await bookingApi.exportReceiptPDF(id);
+      else if (type === 'voucher') response = await bookingApi.exportVoucherPDF(id);
 
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
@@ -438,15 +495,20 @@ const Booking = () => {
   const handleInvoiceSubmit = async (e) => {
     e.preventDefault();
     try {
-      const amount = parseFloat(formData.amount) || 0;
+      const totalNetAmount = parseFloat(formData.totalNetAmount || formData.amount) || 0;
+      const greenTax = parseFloat(formData.greenTax) || 0;
+      const tgst = parseFloat(formData.tgst) || (totalNetAmount * 0.17);
       const discountValue = parseFloat(formData.discountValue) || 0;
-      const finalAmount = amount - discountValue;
+      const finalAmount = totalNetAmount + greenTax + tgst - discountValue;
 
       const invoiceData = {
         customerName: selectedLead.guestName,
         email: selectedLead.email,
         phone: selectedLead.phone,
-        amount,
+        amount: totalNetAmount,
+        totalNetAmount,
+        greenTax,
+        tgst,
         discountValue,
         finalAmount,
         dueDate: formData.dueDate,
@@ -560,6 +622,15 @@ const Booking = () => {
       toast.success('Email sent successfully');
     } catch (error) {
       toast.error('Failed to send email');
+    }
+  };
+
+  const handleSendVoucherEmail = async (id) => {
+    try {
+      await bookingApi.sendVoucherEmail(id);
+      toast.success('Voucher sent to customer email');
+    } catch (error) {
+      toast.error('Failed to send voucher email');
     }
   };
 
@@ -774,16 +845,16 @@ const Booking = () => {
                             className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
                             title="Create Invoice"
                           >
-                            <FiFileText size={16} />
+                            <FiDollarSign size={16} />
                           </button>
-                          <button 
+                          {/* <button 
                             onClick={() => handleOpenPayment(lead)}
                             className={`p-1.5 rounded transition-colors ${lead.balance > 0 ? 'hover:bg-gold-500/10 text-gray-400 hover:text-gold-500' : 'text-gray-600 cursor-not-allowed'}`}
                             title="Record Payment"
                             disabled={!(lead.balance > 0)}
                           >
                             <FiDollarSign size={16} />
-                          </button>
+                          </button> */}
                           <button 
                             onClick={() => handleOpenReceipt(lead)}
                             className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
@@ -791,6 +862,15 @@ const Booking = () => {
                           >
                             <FiFile size={16} />
                           </button>
+                          {lead.status === 'Confirmed' && (
+                            <button 
+                              onClick={() => handleOpenVoucher(lead)}
+                              className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
+                              title="Create Voucher"
+                            >
+                              <HiTicket size={16} />
+                            </button>
+                          )}
                           <button 
                             onClick={() => handleOpenDocuments(lead)}
                             className="p-1.5 hover:bg-gold-500/10 rounded transition-colors text-gray-400 hover:text-gold-500"
@@ -2027,40 +2107,71 @@ const Booking = () => {
             <h4 className="font-semibold text-gold-600 mb-3">Invoice Details</h4>
             
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">AMOUNT</label>
               <Input
                 type="text"
                 value={formData.amount || ''}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                placeholder="Enter base price"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const num = parseFloat(val) || 0;
+                  setFormData({ 
+                    ...formData, 
+                    amount: val, 
+                    totalNetAmount: val,
+                    tgst: (num * 0.17).toFixed(2)
+                  });
+                }}
+                placeholder="Enter amount"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">GREEN TAX ($)</label>
               <Input
                 type="text"
-                value={formData.discountValue || ''}
-                onChange={(e) => setFormData({ ...formData, discountValue: e.target.value })}
-                placeholder="Enter discount amount"
+                value={formData.greenTax || '0'}
+                onChange={(e) => setFormData({ ...formData, greenTax: e.target.value })}
+                placeholder="Enter green tax"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">T-GST 17.00% ($)</label>
+              <Input
+                type="text"
+                value={formData.tgst || '0.00'}
+                onChange={(e) => setFormData({ ...formData, tgst: e.target.value })}
+                placeholder="T-GST"
               />
             </div>
 
             {/* Summary */}
-            <div className="bg-white p-3 rounded-lg space-y-2 mt-4">
+            <div className="bg-gray-50 p-3 rounded-lg space-y-2 mt-4 border-t border-gray-100">
               <div className="flex justify-between text-sm">
-                <span className="font-medium">Base Price:</span>
-                <span className="text-gold-500 font-bold">${(parseFloat(formData.amount) || 0).toFixed(2)}</span>
+                <span className="font-medium text-gray-600">AMOUNT:</span>
+                <span className="text-gray-900 font-bold">${(parseFloat(formData.amount) || 0).toFixed(2)}</span>
               </div>
-              {(parseFloat(formData.discountValue) > 0) && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span className="font-medium">Discount:</span>
-                  <span>-${(parseFloat(formData.discountValue) || 0).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                <span>Final Price:</span>
-                <span className="text-gold-500">${((parseFloat(formData.amount) || 0) - (parseFloat(formData.discountValue) || 0)).toFixed(2)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-600">GREEN TAX:</span>
+                <span className="text-gray-900">${(parseFloat(formData.greenTax) || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-600">T-GST 17.00%:</span>
+                <span className="text-gray-900">${(parseFloat(formData.tgst) || 0).toFixed(2)}</span>
+              </div>
+              
+              <div className="flex justify-between text-lg font-bold border-t border-gold-200 pt-2 mt-2">
+                <span className="text-gold-700">GRAND TOTAL:</span>
+                <span className="text-gold-600">
+                  ${(
+                    (parseFloat(formData.amount) || 0) + 
+                    (parseFloat(formData.greenTax) || 0) + 
+                    (parseFloat(formData.tgst) || 0)
+                  ).toFixed(2)}
+                </span>
+              </div>
+              <div className="text-[10px] text-gray-400 text-center uppercase font-bold tracking-widest pt-1">
+                ALL TAXES INCLUDED
               </div>
             </div>
           </div>
@@ -2384,6 +2495,79 @@ const Booking = () => {
         </form>
       </Modal>
 
+      {/* Voucher Modal */}
+      <Modal isOpen={showVoucherModal} onClose={() => setShowVoucherModal(false)} title="Create Booking Voucher">
+        <form onSubmit={handleVoucherSubmit} className="space-y-4">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+            <h4 className="text-green-800 font-semibold flex items-center">
+              <HiTicket className="mr-2" /> Voucher Confirmation
+            </h4>
+            <p className="text-green-700 text-sm mt-1">Generating official voucher for {formData.customerName}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Customer Name"
+              value={formData.customerName || ''}
+              onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+              required
+            />
+            <Input
+              label="Customer Email"
+              value={formData.email || ''}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Resort Name"
+              value={formData.resortName || ''}
+              readOnly
+            />
+            <Input
+              label="Room"
+              value={formData.roomName || ''}
+              readOnly
+            />
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
+            <h5 className="font-semibold text-gray-700 text-sm">Action Items:</h5>
+            <div className="flex items-center space-x-6">
+              <label className="flex items-center cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  checked={voucherOptions.download}
+                  onChange={(e) => setVoucherOptions({ ...voucherOptions, download: e.target.checked })}
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 group-hover:text-green-600 transition-colors">Download PDF</span>
+              </label>
+              <label className="flex items-center cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  checked={voucherOptions.email}
+                  onChange={(e) => setVoucherOptions({ ...voucherOptions, email: e.target.checked })}
+                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                />
+                <span className="ml-2 text-sm text-gray-700 group-hover:text-green-600 transition-colors">Email to Customer</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-4">
+            <Button type="submit" variant="primary" className="flex-1 justify-center bg-green-600 hover:bg-green-700 border-none">
+              Create Voucher
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowVoucherModal(false)} className="flex-1 justify-center">
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Documents Modal */}
       <Modal isOpen={showDocumentsModal} onClose={() => setShowDocumentsModal(false)} title="Booking Documents">
         <div className="max-h-[80vh] overflow-y-auto space-y-6">
@@ -2458,6 +2642,41 @@ const Booking = () => {
               )}
             </div>
           ))}
+
+          {selectedLead?.status === 'Confirmed' && (
+            <div className="bg-green-50 rounded-lg border border-green-200 overflow-hidden shadow-sm">
+              <div className="bg-green-100 px-4 py-3 border-b border-green-200 flex items-center justify-between">
+                <div className="flex items-center">
+                  <FiCheckCircle className="mr-2 text-green-600" />
+                  <h5 className="font-semibold text-green-800">Booking Voucher</h5>
+                </div>
+                <span className="bg-green-200 text-green-800 text-xs px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
+                  Ready
+                </span>
+              </div>
+              <div className="p-6 text-center">
+                <p className="text-sm text-green-700 mb-4">
+                  The booking is fully paid and confirmed. You can now download the official booking voucher.
+                </p>
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => handleDownloadDocument('voucher', selectedLead._id, selectedLead.leadNumber || selectedLead.booking?.bookingNumber)}
+                    icon={FiDownload}
+                    className="bg-green-600 hover:bg-green-700 border-none flex-1 justify-center"
+                  >
+                    Download
+                  </Button>
+                  <Button 
+                    onClick={() => handleSendVoucherEmail(selectedLead._id)}
+                    icon={FiMail}
+                    className="bg-blue-600 hover:bg-blue-700 border-none flex-1 justify-center"
+                  >
+                    Email Customer
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end pt-2">
             <Button variant="outline" onClick={() => setShowDocumentsModal(false)}>

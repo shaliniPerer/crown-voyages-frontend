@@ -15,10 +15,13 @@ export const bookingApi = {
   exportQuotationPDF: (id) => axios.get(`/bookings/quotation/${id}/pdf`, { responseType: 'blob' }),
   convertToBooking: (quotationId, data) => axios.post(`/bookings/quotation/${quotationId}/convert`, data),
   getBookings: (params) => axios.get('/bookings', { params }),
+  getVouchers: (params) => axios.get('/bookings/vouchers', { params }),
   getBookingById: (id) => axios.get(`/bookings/${id}`),
   updateBooking: (id, data) => axios.patch(`/bookings/${id}`, data),
   deleteBooking: (id) => axios.delete(`/bookings/${id}`),
   createVoucher: (data) => axios.post('/bookings/voucher', data),
+  exportVoucherPDF: (id) => axios.get(`/bookings/voucher/${id}/pdf`, { responseType: 'blob' }),
+  sendVoucherEmail: (id) => axios.post(`/bookings/voucher/${id}/send`),
   // Invoice & Receipt APIs
   getInvoices: (params) => axios.get('/bookings/invoices', { params }),
   createInvoice: (data) => axios.post('/bookings/invoice', data),
