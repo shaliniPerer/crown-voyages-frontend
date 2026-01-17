@@ -1951,23 +1951,24 @@ const Booking = () => {
       <Modal isOpen={showQuotationModal} onClose={() => setShowQuotationModal(false)} title="Create Quotation">
         <form onSubmit={handleQuotationSubmit} className="space-y-6">
           <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
-            <h4 className="font-semibold text-gold-600 mb-3">Customer & Booking Details</h4>
+            <h4 className="font-semibold text-gold-600 mb-3">Customer Details</h4>
             <p className="text-gray-900"><span className="font-medium">Name:</span> {selectedLead?.guestName}</p>
             <p className="text-gray-900"><span className="font-medium">Email:</span> {selectedLead?.email}</p>
             <p className="text-gray-900"><span className="font-medium">Phone:</span> {selectedLead?.phone}</p>
-            {selectedLead?.resort && (
+            {/* {selectedLead?.resort && (
               <p className="text-gray-900"><span className="font-medium">Resort:</span> {selectedLead.resort.name || 'N/A'}</p>
             )}
             {selectedLead?.room && (
               <p className="text-gray-900"><span className="font-medium">Room:</span> {selectedLead.room.roomType || 'N/A'}</p>
-            )}
-            <p className="text-gray-900"><span className="font-medium">Check-in:</span> {selectedLead?.checkIn ? new Date(selectedLead.checkIn).toLocaleDateString() : 'N/A'}</p>
-            <p className="text-gray-900"><span className="font-medium">Check-out:</span> {selectedLead?.checkOut ? new Date(selectedLead.checkOut).toLocaleDateString() : 'N/A'}</p>
+            )} */}
+            {/* <p className="text-gray-900"><span className="font-medium">Check-in:</span> {selectedLead?.checkIn ? new Date(selectedLead.checkIn).toLocaleDateString() : 'N/A'}</p> */}
+           
+
           </div>
 
           {/* Valid Until */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Valid Until</label>
+            <label className="block text-sm font-medium text-gray-900 mb-2">Valid Until</label>
             <Input
               type="date"
               value={formData.validUntil || ''}
@@ -1980,7 +1981,7 @@ const Booking = () => {
             <h4 className="font-semibold text-gold-600 mb-3">Quotation Details</h4>
             
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Base Price</label>
+              <label className="block text-sm font-medium text-gray-900 mb-2">Base Price</label>
               <Input
                 type="text"
                 value={formData.amount || ''}
@@ -1990,7 +1991,7 @@ const Booking = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Discount Amount</label>
+              <label className="block text-sm font-medium text-gray-900 mb-2">Discount Amount</label>
               <Input
                 type="text"
                 value={formData.discountValue || ''}
@@ -2019,7 +2020,7 @@ const Booking = () => {
           </div>
 
           {/* Notes & Terms */}
-          <div className="space-y-3">
+          {/* <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
               <textarea
@@ -2040,7 +2041,7 @@ const Booking = () => {
                 placeholder="Terms and conditions..."
               />
             </div>
-          </div>
+          </div> */}
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center">
@@ -2081,21 +2082,21 @@ const Booking = () => {
       <Modal isOpen={showInvoiceModal} onClose={() => setShowInvoiceModal(false)} title="Create Invoice">
         <form onSubmit={handleInvoiceSubmit} className="space-y-6">
           <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2">
-            <h4 className="font-semibold text-gold-600 mb-3">Customer & Booking Details</h4>
+            <h4 className="font-semibold text-gold-600 mb-3">Customer Details</h4>
             <p className="text-gray-900"><span className="font-medium">Name:</span> {selectedLead?.guestName}</p>
             <p className="text-gray-900"><span className="font-medium">Email:</span> {selectedLead?.email}</p>
             <p className="text-gray-900"><span className="font-medium">Phone:</span> {selectedLead?.phone}</p>
-            {selectedLead?.resort && (
+            {/* {selectedLead?.resort && (
               <p className="text-gray-900"><span className="font-medium">Resort:</span> {selectedLead.resort.name || 'N/A'}</p>
-            )}
-            {selectedLead?.room && (
+            )} */}
+            {/* {selectedLead?.room && (
               <p className="text-gray-900"><span className="font-medium">Room:</span> {selectedLead.room.roomType || 'N/A'}</p>
-            )}
+            )} */}
           </div>
 
           {/* Due Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Due Date</label>
+            <label className="block text-sm font-medium text-gray-900 mb-2">Due Date</label>
             <Input
               type="date"
               value={formData.dueDate || ''}
@@ -2178,7 +2179,7 @@ const Booking = () => {
           </div>
 
           {/* Notes */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
             <textarea
               className="input-luxury w-full"
@@ -2187,7 +2188,7 @@ const Booking = () => {
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Additional notes..."
             />
-          </div>
+          </div> */}
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center">

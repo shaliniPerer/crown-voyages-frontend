@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { FiHome, FiBarChart2, FiCalendar, FiMap, FiGrid, FiFileText, FiUsers, FiBell } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../assets/report_logo.png';
 
 const Sidebar = () => {
   const { user } = useAuth();
@@ -25,10 +26,9 @@ const Sidebar = () => {
     <div className="w-64 bg-luxury-dark border-r border-gold-800/30 h-screen sticky top-0 flex-col hidden lg:flex">
       {/* Logo */}
       <div className="px-6 py-8 border-b border-gold-800/30">
-        <h1 className="text-3xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
-          Crown Voyages
-        </h1>
-        <p className="text-lg text-gray-500 mt-1">Management System</p>
+        <NavLink to="/dashboard">
+          <img src={logo} alt="Crown Voyages" className="w-48 h-auto" />
+        </NavLink>
       </div>
 
       {/* Navigation */}
