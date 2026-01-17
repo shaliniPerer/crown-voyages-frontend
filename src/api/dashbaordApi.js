@@ -12,4 +12,5 @@ export const dashboardApi = {
   getResortAnalysis: (period) => axios.get(`/dashboard/resort-analysis?period=${period}`),
   getRoomAnalysis: (period) => axios.get(`/dashboard/room-analysis?period=${period}`),
   getUserAnalysis: (period) => axios.get(`/dashboard/user-analysis?period=${period}`),
+  getOperationalTrends: () => axios.get('/dashboard/operational-trends'),
 };

@@ -342,9 +342,9 @@ const Billing = () => {
           <p className="text-gray-900 mt-1">Manage quotations, invoices, receipts</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" icon={FiBell} onClick={() => window.location.href='/payment-reminders'} title="Configure Automated Schedules">
+          {/* <Button variant="outline" icon={FiBell} onClick={() => window.location.href='/payment-reminders'} title="Configure Automated Schedules">
             Reminders
-          </Button>
+          </Button> */}
           <Button variant="outline" icon={FiPrinter} onClick={() => setShowReportModal(true)}>
             Reports
           </Button>
@@ -657,9 +657,9 @@ const Billing = () => {
                         {receipt.lead?.booking?.bookingNumber || receipt.lead?.leadNumber || '-'}
                       </td>
                       <td className="font-medium text-gray-100">{receipt.customerName}</td>
-                      <td className="font-semibold text-gray-400">${(receipt.lead?.totalAmount || receipt.invoice?.finalAmount || receipt.bookingTotal || 0).toLocaleString()}</td>
-                      <td className="font-bold text-green-400">${(receipt.finalAmount || 0).toLocaleString()}</td>
-                      <td className="font-semibold text-red-500">${(receipt.remainingBalance !== undefined && receipt.remainingBalance !== null ? receipt.remainingBalance : (receipt.lead?.balance || 0)).toLocaleString()}</td>
+                      <td className="font-semibold text-gray-400">${(receipt.bookingTotal || receipt.lead?.totalAmount || receipt.invoice?.finalAmount || 0).toLocaleString()}</td>
+                      <td className="font-bold text-green-400">${(receipt.lead?.paidAmount || receipt.invoice?.paidAmount || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-red-500">${(receipt.remainingBalance !== undefined && receipt.remainingBalance !== null ? receipt.remainingBalance : (receipt.lead?.balance || receipt.invoice?.balance || 0)).toLocaleString()}</td>
                       <td>{receipt.paymentMethod || 'Cash'}</td>
                       <td className="flex gap-2">
                         <Button

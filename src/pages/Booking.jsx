@@ -643,7 +643,7 @@ const Booking = () => {
       case 'Quotation':
         return `${baseClasses} bg-purple-200 text-black border-purple-500`;
       case 'Invoice':
-        return `${baseClasses} bg-indigo-200 text-black border-indigo-500`;
+        return `${baseClasses} bg-yellow-200 text-black border-yellow-500`;
       case 'Receipt':
         return `${baseClasses} bg-pink-200 text-black border-pink-500`;
       case 'Confirmed':

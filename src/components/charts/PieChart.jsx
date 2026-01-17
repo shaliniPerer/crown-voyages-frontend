@@ -1,4 +1,4 @@
-import {  PieChart, Pie,  Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import {  PieChart, Pie,  Cell, Tooltip, ResponsiveContainer } from '';
 
 // Pie Chart Component
 export const StatusPieChart = ({ data }) => {

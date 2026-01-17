@@ -38,8 +38,14 @@ const Dashboard = () => {
   const [resortPeriod, setResortPeriod] = useState('all');
   const [roomPeriod, setRoomPeriod] = useState('all');
   const [userPeriod, setUserPeriod] = useState('all');
+  const [userDateRange, setUserDateRange] = useState({ start: '', end: '', week: '', month: '', year: '' });
+  const [operationalPeriod, setOperationalPeriod] = useState('all');
+  const [operationalDateRange, setOperationalDateRange] = useState({ start: '', end: '', week: '', month: '', year: '' });
+  const [bookingPeriod, setBookingPeriod] = useState('all');
+  const [bookingDateRange, setBookingDateRange] = useState({ start: '', end: '', week: '', month: '', year: '' });
   const [voucherPeriod, setVoucherPeriod] = useState('monthly');
   const [revenueData, setRevenueData] = useState([]);
+  const [operationalTrendsData, setOperationalTrendsData] = useState([]);
   const [voucherTrendsData, setVoucherTrendsData] = useState([]);
 
   useEffect(() => {
@@ -66,6 +72,10 @@ const Dashboard = () => {
     fetchRevenueAnalysis();
   }, []);
 
+  useEffect(() => {
+    fetchOperationalTrends();
+  }, []);
+
   const fetchVoucherTrends = async () => {
     try {
       const res = await dashboardApi.getVoucherTrends(voucherPeriod);
@@ -81,6 +91,15 @@ const Dashboard = () => {
       setRevenueData(res.data.data || []);
     } catch (error) {
        console.error('Error fetching revenue analysis:', error);
+    }
+  };
+
+  const fetchOperationalTrends = async () => {
+    try {
+      const res = await dashboardApi.getOperationalTrends();
+      setOperationalTrendsData(res.data.data || []);
+    } catch (error) {
+       console.error('Error fetching operational trends:', error);
     }
   };
 
@@ -137,16 +156,27 @@ const Dashboard = () => {
     }
   };
 
-  const handleDownloadReport = async (reportType, periodType) => {
+  const handleDownloadReport = async (reportType, periodType, dateRangeParams = null) => {
     try {
       toast.info(`Preparing ${reportType} report...`);
-      const response = await analyticsApi.exportToPDF(reportType, { period: periodType });
+      const params = { period: periodType };
+      
+      // Add date range params if provided
+      if (dateRangeParams) {
+        if (dateRangeParams.start) params.startDate = dateRangeParams.start;
+        if (dateRangeParams.end) params.endDate = dateRangeParams.end;
+        if (dateRangeParams.week) params.week = dateRangeParams.week;
+        if (dateRangeParams.month) params.month = dateRangeParams.month;
+        if (dateRangeParams.year) params.year = dateRangeParams.year;
+      }
+      
+      const response = await analyticsApi.exportToPDF(reportType, params);
       
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${reportType}-report-${periodType}.pdf`;
+      link.download = `${reportType}-report-${new Date().toISOString().split('T')[0]}.pdf`;
       link.click();
       toast.success('Report downloaded successfully');
     } catch (error) {
@@ -156,6 +186,13 @@ const Dashboard = () => {
   };
   
   const metricCards = [
+     { 
+      title: 'Total Sales (Full)', 
+      value: `$${(metrics?.totalInvoiceValue || 0).toLocaleString()}`, 
+      icon: FiDollarSign, 
+      color: 'from-gold-600 to-gold-500',
+      change: `Total Invoices: ${metrics?.totalInvoiceCount || 0}`
+    },
     { 
       title: 'Receipts Totals', 
       value: `$${(metrics?.totalReceiptValue || 0).toLocaleString()}`, 
@@ -177,13 +214,7 @@ const Dashboard = () => {
       color: 'from-green-600 to-green-500',
       change: `Val: $${(metrics?.paidInvoicesValue || 0).toLocaleString()}`
     },
-    { 
-      title: 'Total Sales (Full)', 
-      value: `$${(metrics?.totalInvoiceValue || 0).toLocaleString()}`, 
-      icon: FiDollarSign, 
-      color: 'from-gold-600 to-gold-500',
-      change: `Total Invoices: ${metrics?.totalInvoiceCount || 0}`
-    },
+   
   ];
 
   if (loading) return <Loader />;
@@ -196,28 +227,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-luxury font-bold text-gold-500">Dashboard</h1>
           <p className="text-gray-900 mt-1">Overview of your resort management system</p>
         </div>
-        {/* <div className="flex flex-wrap gap-2">
-           <div className="flex items-center bg-white border border-gold-800/30 rounded-lg p-1.5 shadow-sm">
-              <span className="text-[10px] font-bold text-gray-400 px-2 border-r border-gold-800/20 mr-2 uppercase tracking-widest">Global Reports</span>
-              <div className="flex gap-1">
-                {[
-                  { label: 'Daily', period: 'daily' },
-                  { label: 'Weekly', period: 'weekly' },
-                  { label: 'Monthly', period: 'monthly' },
-                  { label: 'Annually', period: 'annually' },
-                  { label: 'All Time', period: 'all' }
-                ].map((item) => (
-                  <button 
-                    key={item.period}
-                    onClick={() => handleDownloadReport('booking', item.period)} 
-                    className="text-[10px] uppercase font-bold px-2.5 py-1 text-gold-700 hover:bg-gold-50 rounded border border-transparent hover:border-gold-800/20 transition-all"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-           </div>
-        </div> */}
+  
       </div>
 
       {/* Metric Cards */}
@@ -257,31 +267,93 @@ const Dashboard = () => {
 
       {/* Team Performance Analysis (replaced Financial Summary) */}
       <Card className="border-gold-800/30">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <FiUsers className="text-gold-500 w-5 h-5"/>
-            <h2 className="text-lg font-bold text-gray-900">User Performance Analysis</h2>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <FiUsers className="text-gold-500 w-5 h-5"/>
+              <h2 className="text-lg font-bold text-gray-900">User Performance Analysis</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handleDownloadReport('user-performance', userPeriod, userDateRange)}
+                className="p-2 text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
+                title="Download Team Report"
+              >
+                <FiDownload />
+              </button>
+              <select 
+                value={userPeriod} 
+                onChange={(e) => {
+                  setUserPeriod(e.target.value);
+                  setUserDateRange({ start: '', end: '', week: '', month: '', year: '' });
+                }}
+                className="input-luxury text-sm py-1 px-3 w-32"
+              >
+                <option value="all">All Time</option>
+                <option value="annually">Annually</option>
+                <option value="range">Date Range</option>
+                <option value="week">By Week</option>
+                <option value="month">By Month</option>
+                <option value="year">By Year</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleDownloadReport('user-performance', userPeriod)}
-              className="p-2 text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
-              title="Download Team Report"
-            >
-              <FiDownload />
-            </button>
-            <select 
-              value={userPeriod} 
-              onChange={(e) => setUserPeriod(e.target.value)}
-              className="input-luxury text-sm py-1 px-3 w-32"
-            >
-              <option value="all">All Time</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="annually">Annually</option>
-            </select>
-          </div>
+          
+          {/* Date Range Inputs */}
+          {userPeriod === 'range' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">From:</label>
+              <input 
+                type="date" 
+                value={userDateRange.start}
+                onChange={(e) => setUserDateRange({...userDateRange, start: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-40"
+              />
+              <label className="text-xs text-gray-500">To:</label>
+              <input 
+                type="date" 
+                value={userDateRange.end}
+                onChange={(e) => setUserDateRange({...userDateRange, end: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-40"
+              />
+            </div>
+          )}
+          {userPeriod === 'week' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">Select Week:</label>
+              <input 
+                type="week" 
+                value={userDateRange.week}
+                onChange={(e) => setUserDateRange({...userDateRange, week: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-48"
+              />
+            </div>
+          )}
+          {userPeriod === 'month' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">Select Month:</label>
+              <input 
+                type="month" 
+                value={userDateRange.month}
+                onChange={(e) => setUserDateRange({...userDateRange, month: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-48"
+              />
+            </div>
+          )}
+          {userPeriod === 'year' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">Select Year:</label>
+              <input 
+                type="number" 
+                min="2020" 
+                max="2030" 
+                value={userDateRange.year}
+                onChange={(e) => setUserDateRange({...userDateRange, year: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-32"
+                placeholder="YYYY"
+              />
+            </div>
+          )}
         </div>
         
         {userData.length > 0 ? (
@@ -304,9 +376,9 @@ const Dashboard = () => {
                     }}
                   />
                   <Legend wrapperStyle={{ fontSize: '10px' }} />
-                  <Bar yAxisId="left" dataKey="conversions" name="Conversions" fill="#D4AF37" radius={[4, 4, 0, 0]} />
-                  <Bar yAxisId="left" dataKey="fullyPaid" name="Fully Paid" fill="#10B981" radius={[4, 4, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="totalPaid" name="Revenue ($)" stroke="#3B82F6" strokeWidth={2} dot={{ r: 4 }} />
+                  <Bar yAxisId="left" dataKey="receiptsCount" name="Receipt Status" fill="#EC4899" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="left" dataKey="confirmedCount" name="Confirmed Status" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Line yAxisId="right" type="monotone" dataKey="paidAmount" name="Paid Amount ($)" stroke="#D4AF37" strokeWidth={2} dot={{ r: 4 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -315,10 +387,12 @@ const Dashboard = () => {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="py-2 font-semibold text-gray-500">USER</th>
-                    <th className="py-2 font-semibold text-gray-500 text-center">CONV.</th>
-                    <th className="py-2 font-semibold text-gray-500 text-center">FULL PAID</th>
-                    <th className="py-2 font-semibold text-gray-500 text-right">REVENUE ($)</th>
+                    <th className="py-2 font-semibold text-gray-500 text-left uppercase text-[10px]">USER</th>
+                    <th className="py-2 font-semibold text-gray-500 text-center uppercase text-[10px]">RECEIPT</th>
+                    <th className="py-2 font-semibold text-gray-500 text-center uppercase text-[10px]">CONFIRMED</th>
+                    <th className="py-2 font-semibold text-gray-500 text-right uppercase text-[10px]">FULL AMT</th>
+                    <th className="py-2 font-semibold text-green-600 text-right uppercase text-[10px]">PAID</th>
+                    <th className="py-2 font-semibold text-red-500 text-right uppercase text-[10px]">BALANCE</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -335,9 +409,11 @@ const Dashboard = () => {
                            </div>
                         </div>
                       </td>
-                      <td className="py-3 text-center text-gold-600 font-bold">{u.conversions}</td>
-                      <td className="py-3 text-center text-green-600 font-bold">{u.fullyPaid}</td>
-                      <td className="py-3 text-right text-gray-700 font-medium">${(u.totalPaid || 0).toLocaleString()}</td>
+                      <td className="py-3 text-center text-pink-600 font-bold">{u.receiptsCount || 0}</td>
+                      <td className="py-3 text-center text-green-600 font-bold">{u.confirmedCount || 0}</td>
+                      <td className="py-3 text-right text-gray-700">${(u.fullAmount || 0).toLocaleString()}</td>
+                      <td className="py-3 text-right text-green-600 font-bold">${(u.paidAmount || 0).toLocaleString()}</td>
+                      <td className="py-3 text-right text-red-500 font-semibold">${(u.balance || 0).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -353,31 +429,111 @@ const Dashboard = () => {
 
       {/* NEW: Operational Document Trends */}
       <Card className="border-gold-800/30">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <FiBarChart2 className="text-gold-500 w-5 h-5"/>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Upcoming Document Trends</h2>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest">Based on Check-in Dates</p>
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <FiBarChart2 className="text-gold-500 w-5 h-5"/>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Booking Distribution Report</h2>
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest">Leads & Billing Details</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handleDownloadReport('operational-trends', operationalPeriod, operationalDateRange)}
+                className="p-2 text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
+                title="Download Booking Distribution Report"
+              >
+                <FiDownload />
+              </button>
+              <select 
+                value={operationalPeriod} 
+                onChange={(e) => {
+                  setOperationalPeriod(e.target.value);
+                  setOperationalDateRange({ start: '', end: '', week: '', month: '', year: '' });
+                }}
+                className="input-luxury text-sm py-1 px-3 w-32"
+              >
+                <option value="all">All Time</option>
+                <option value="annually">Annually</option>
+                <option value="range">Date Range</option>
+                <option value="week">By Week</option>
+                <option value="month">By Month</option>
+                <option value="year">By Year</option>
+              </select>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => handleDownloadReport('operational-trends', 'all')}
-              className="p-2 text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
-              title="Download Operational Report"
-            >
-              <FiDownload />
-            </button>
-          </div>
+          
+          {/* Date Range Inputs */}
+          {operationalPeriod === 'range' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">From:</label>
+              <input 
+                type="date" 
+                value={operationalDateRange.start}
+                onChange={(e) => setOperationalDateRange({...operationalDateRange, start: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-40"
+              />
+              <label className="text-xs text-gray-500">To:</label>
+              <input 
+                type="date" 
+                value={operationalDateRange.end}
+                onChange={(e) => setOperationalDateRange({...operationalDateRange, end: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-40"
+              />
+            </div>
+          )}
+          {operationalPeriod === 'week' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">Select Week:</label>
+              <input 
+                type="week" 
+                value={operationalDateRange.week}
+                onChange={(e) => setOperationalDateRange({...operationalDateRange, week: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-48"
+              />
+            </div>
+          )}
+          {operationalPeriod === 'month' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">Select Month:</label>
+              <input 
+                type="month" 
+                value={operationalDateRange.month}
+                onChange={(e) => setOperationalDateRange({...operationalDateRange, month: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-48"
+              />
+            </div>
+          )}
+          {operationalPeriod === 'year' && (
+            <div className="flex gap-2 items-center">
+              <label className="text-xs text-gray-500">Select Year:</label>
+              <input 
+                type="number" 
+                min="2020" 
+                max="2030" 
+                value={operationalDateRange.year}
+                onChange={(e) => setOperationalDateRange({...operationalDateRange, year: e.target.value})}
+                className="input-luxury text-sm py-1 px-2 w-32"
+                placeholder="YYYY"
+              />
+            </div>
+          )}
         </div>
         
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={revenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={operationalTrendsData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fontSize: 10 }} />
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#9CA3AF" 
+                  tick={{ fontSize: 9 }} 
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
                 <YAxis stroke="#9CA3AF" tick={{ fontSize: 10 }} />
                 <Tooltip 
                   contentStyle={{ backgroundColor: 'white', border: '1px solid #D4AF37', borderRadius: '8px', fontSize: '12px' }}
@@ -385,7 +541,7 @@ const Dashboard = () => {
                 <Legend wrapperStyle={{ fontSize: '10px' }} />
                 <Bar dataKey="leadCount" name="New Leads" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="quotationCount" name="Quotations" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="invoiceCount" name="Invoices" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="invoiceCount" name="Invoices" fill="#F59E0B" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -403,17 +559,108 @@ const Dashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {(revenueData || []).slice(0, 10).map((d, idx) => (
+                {(operationalTrendsData || []).slice(0, 10).map((d, idx) => (
                   <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="py-3 font-medium text-gray-900">{d.name}</td>
                     <td className="py-3 text-center text-blue-600 font-bold">{d.leadCount || 0}</td>
                     <td className="py-3 text-center text-purple-600 font-bold">{d.quotationCount || 0}</td>
-                    <td className="py-3 text-center text-green-600 font-bold">{d.invoiceCount || 0}</td>
+                    <td className="py-3 text-center text-yellow-500 font-bold">{d.invoiceCount || 0}</td>
                     <td className="py-3 text-right text-gray-700 font-medium">${(d.invoice || 0).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+        
+        {/* Download Report Section at Bottom */}
+        <div className="mt-6 pt-6 border-t border-gray-100">
+          <div className="flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <FiDownload className="text-gold-500" />
+                Download Booking Distribution Report
+              </h4>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDownloadReport('operational-trends', operationalPeriod, operationalDateRange)}
+                  className="px-4 py-2 bg-gold-600 text-white rounded-lg hover:bg-gold-700 transition-colors text-sm font-semibold"
+                >
+                  Generate PDF
+                </button>
+                <select 
+                  value={operationalPeriod} 
+                  onChange={(e) => {
+                    setOperationalPeriod(e.target.value);
+                    setOperationalDateRange({ start: '', end: '', week: '', month: '', year: '' });
+                  }}
+                  className="input-luxury text-sm py-1 px-3 w-32"
+                >
+                  <option value="all">All Time</option>
+                  <option value="annually">Annually</option>
+                  <option value="range">Date Range</option>
+                  <option value="week">By Week</option>
+                  <option value="month">By Month</option>
+                  <option value="year">By Year</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Date Range Inputs */}
+            {operationalPeriod === 'range' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">From:</label>
+                <input 
+                  type="date" 
+                  value={operationalDateRange.start}
+                  onChange={(e) => setOperationalDateRange({...operationalDateRange, start: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-40"
+                />
+                <label className="text-xs text-gray-500">To:</label>
+                <input 
+                  type="date" 
+                  value={operationalDateRange.end}
+                  onChange={(e) => setOperationalDateRange({...operationalDateRange, end: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-40"
+                />
+              </div>
+            )}
+            {operationalPeriod === 'week' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">Select Week:</label>
+                <input 
+                  type="week" 
+                  value={operationalDateRange.week}
+                  onChange={(e) => setOperationalDateRange({...operationalDateRange, week: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-48"
+                />
+              </div>
+            )}
+            {operationalPeriod === 'month' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">Select Month:</label>
+                <input 
+                  type="month" 
+                  value={operationalDateRange.month}
+                  onChange={(e) => setOperationalDateRange({...operationalDateRange, month: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-48"
+                />
+              </div>
+            )}
+            {operationalPeriod === 'year' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">Select Year:</label>
+                <input 
+                  type="number" 
+                  min="2020" 
+                  max="2030" 
+                  value={operationalDateRange.year}
+                  onChange={(e) => setOperationalDateRange({...operationalDateRange, year: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-32"
+                  placeholder="YYYY"
+                />
+              </div>
+            )}
           </div>
         </div>
       </Card>
@@ -665,7 +912,7 @@ const Dashboard = () => {
       </div>
 
       {/* Upcoming Bookings Overview (Replaces Arrivals Section) */}
-      <Card 
+      {/* <Card 
         title="Upcoming Bookings Overview" 
         subtitle="Detailed tracking of Quotations and Invoices for upcoming check-ins"
         className="border-gold-800/30"
@@ -774,10 +1021,96 @@ const Dashboard = () => {
             </div>
           )}
         </div>
-      </Card>
+      </Card> */}
 
       {/* Booking Distribution */}
-        <Card title="Booking Distribution" className="lg:col-span-2">
+        <Card title="Bookings" className="lg:col-span-2 text-">
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900">Booking Status Overview</h3>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleDownloadReport('booking', bookingPeriod, bookingDateRange)}
+                  className="p-2 text-gold-600 hover:bg-gold-50 rounded-lg transition-colors"
+                  title="Download Bookings Report"
+                >
+                  <FiDownload />
+                </button>
+                <select 
+                  value={bookingPeriod} 
+                  onChange={(e) => {
+                    setBookingPeriod(e.target.value);
+                    setBookingDateRange({ start: '', end: '', week: '', month: '', year: '' });
+                  }}
+                  className="input-luxury text-sm py-1 px-3 w-32"
+                >
+                  <option value="all">All Time</option>
+                  <option value="annually">Annually</option>
+                  <option value="range">Date Range</option>
+                  <option value="week">By Week</option>
+                  <option value="month">By Month</option>
+                  <option value="year">By Year</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Date Range Inputs */}
+            {bookingPeriod === 'range' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">From:</label>
+                <input 
+                  type="date" 
+                  value={bookingDateRange.start}
+                  onChange={(e) => setBookingDateRange({...bookingDateRange, start: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-40"
+                />
+                <label className="text-xs text-gray-500">To:</label>
+                <input 
+                  type="date" 
+                  value={bookingDateRange.end}
+                  onChange={(e) => setBookingDateRange({...bookingDateRange, end: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-40"
+                />
+              </div>
+            )}
+            {bookingPeriod === 'week' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">Select Week:</label>
+                <input 
+                  type="week" 
+                  value={bookingDateRange.week}
+                  onChange={(e) => setBookingDateRange({...bookingDateRange, week: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-48"
+                />
+              </div>
+            )}
+            {bookingPeriod === 'month' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">Select Month:</label>
+                <input 
+                  type="month" 
+                  value={bookingDateRange.month}
+                  onChange={(e) => setBookingDateRange({...bookingDateRange, month: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-48"
+                />
+              </div>
+            )}
+            {bookingPeriod === 'year' && (
+              <div className="flex gap-2 items-center">
+                <label className="text-xs text-gray-500">Select Year:</label>
+                <input 
+                  type="number" 
+                  min="2020" 
+                  max="2030" 
+                  value={bookingDateRange.year}
+                  onChange={(e) => setBookingDateRange({...bookingDateRange, year: e.target.value})}
+                  className="input-luxury text-sm py-1 px-2 w-32"
+                  placeholder="YYYY"
+                />
+              </div>
+            )}
+          </div>
+          
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="w-full md:w-1/2">
               <ResponsiveContainer width="100%" height={300}>
@@ -814,24 +1147,6 @@ const Dashboard = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-                
-                <div className="mt-6 pt-6 border-t border-gray-100">
-                  <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                    <FiDownload className="text-gold-500" />
-                    Download pipeline reports
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {['daily', 'weekly', 'monthly', 'annually', 'all'].map((period) => (
-                      <button
-                        key={period}
-                        onClick={() => handleDownloadReport('operational-trends', period)}
-                        className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider bg-white border border-gold-800/30 text-gold-700 hover:bg-gold-50 rounded transition-colors"
-                      >
-                        {period}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>
