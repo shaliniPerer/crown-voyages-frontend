@@ -248,6 +248,7 @@ const Booking = () => {
         lead: selectedLead._id,
         customerName: formData.customerName,
         email: formData.email,
+        phone: selectedLead.phone || '',
         resortName: formData.resortName,
         roomName: formData.roomName,
         checkIn: formData.checkIn,
@@ -261,11 +262,11 @@ const Booking = () => {
       setShowVoucherModal(false);
 
       if (voucherOptions.download) {
-        handleDownloadDocument('voucher', selectedLead._id, selectedLead.leadNumber || voucher.voucherNumber);
+        handleDownloadDocument('voucher', voucher._id, voucher.voucherNumber);
       }
 
       if (voucherOptions.email) {
-        handleSendVoucherEmail(selectedLead._id);
+        handleSendVoucherEmail(voucher._id);
       }
 
       fetchData();

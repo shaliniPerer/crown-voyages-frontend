@@ -18,7 +18,8 @@ const Input = ({
   step,
   autoComplete,
   onBlur,
-  onFocus
+  onFocus,
+  readOnly = false
 }) => {
   const inputId = id || name || `input-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -46,11 +47,12 @@ const Input = ({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
+          readOnly={readOnly}
           min={min}
           max={max}
           step={step}
           autoComplete={autoComplete}
-          className={`input-luxury w-full ${Icon ? 'pl-12' : ''} ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`input-luxury w-full ${Icon ? 'pl-12' : ''} ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''} ${disabled || readOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
         />
       </div>
       {error && (

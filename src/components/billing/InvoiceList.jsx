@@ -58,27 +58,33 @@ const InvoiceList = ({
     },
     {
       header: 'Amount',
-      accessor: 'totalAmount',
-      render: (invoice) => (
-        <span className="font-semibold text-gray-100">
-          ${invoice.totalAmount?.toLocaleString() || '0'}
-        </span>
-      )
+      accessor: 'finalAmount',
+      render: (invoice) => {
+        const amount = invoice.booking?.totalAmount || invoice.finalAmount || 0;
+        return (
+          <span className="font-semibold text-gray-100">
+            ${amount.toLocaleString()}
+          </span>
+        );
+      }
     },
     {
       header: 'Paid',
       accessor: 'paidAmount',
-      render: (invoice) => (
-        <span className="text-green-400 font-medium">
-          ${invoice.paidAmount?.toLocaleString() || '0'}
-        </span>
-      )
+      render: (invoice) => {
+        const paid = invoice.booking?.paidAmount || invoice.paidAmount || 0;
+        return (
+          <span className="text-green-400 font-medium">
+            ${paid.toLocaleString()}
+          </span>
+        );
+      }
     },
     {
       header: 'Balance',
       accessor: 'balance',
       render: (invoice) => {
-        const balance = (invoice.totalAmount || 0) - (invoice.paidAmount || 0);
+        const balance = invoice.booking?.balance || invoice.balance || 0;
         return (
           <span className={`font-medium ${balance > 0 ? 'text-red-400' : 'text-green-400'}`}>
             ${balance.toLocaleString()}

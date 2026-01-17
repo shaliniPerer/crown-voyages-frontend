@@ -59,15 +59,21 @@ const InvoiceForm = ({ invoice = null, onSuccess, onCancel }) => {
     const selectedBooking = bookings.find(b => b._id === bookingId);
     
     if (selectedBooking) {
+      const bookingTotal = parseFloat(selectedBooking.totalAmount) || 0;
+      // Calculate net amount by backing out 17% T-GST
+      const netAmount = (bookingTotal / 1.17).toFixed(2);
+      const tgstAmount = (bookingTotal - parseFloat(netAmount)).toFixed(2);
+      
       setFormData(prev => ({
         ...prev,
         booking: bookingId,
         customerName: selectedBooking.guestName,
         email: selectedBooking.email,
         phone: selectedBooking.phone,
-        totalAmount: selectedBooking.totalAmount,
-        totalNetAmount: selectedBooking.totalAmount,
-        tgst: (parseFloat(selectedBooking.totalAmount) * 0.17).toFixed(2)
+        totalAmount: bookingTotal,
+        totalNetAmount: netAmount,
+        tgst: tgstAmount,
+        greenTax: 0 // Assuming Green Tax is separate or already handled
       }));
     } else {
       setFormData(prev => ({ ...prev, booking: bookingId }));
