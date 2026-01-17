@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import Loader from '../../components/common/Loader';
+import logo from '../../assets/report_logo.png';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -47,13 +48,10 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md text-center">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-luxury font-bold bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent">
-            Crown Voyages
-          </h1>
-          <p className="text-gray-600 mt-2 text-sm sm:text-base">Management System</p>
+        <div className="flex justify-center mb-8">
+          <img src={logo} alt="Crown Voyages" className="w-64 h-auto" />
         </div>
 
         {/* Login Card */}

@@ -2233,17 +2233,17 @@ const Booking = () => {
             <p className="text-gray-900"><span className="font-medium">Name:</span> {selectedLead?.guestName}</p>
             <p className="text-gray-900"><span className="font-medium">Email:</span> {selectedLead?.email}</p>
             <p className="text-gray-900"><span className="font-medium">Phone:</span> {selectedLead?.phone}</p>
-            {selectedLead?.resort && (
+            {/* {selectedLead?.resort && (
               <p className="text-gray-900"><span className="font-medium">Resort:</span> {selectedLead.resort.name || 'N/A'}</p>
             )}
             {selectedLead?.room && (
               <p className="text-gray-900"><span className="font-medium">Room:</span> {selectedLead.room.roomType || 'N/A'}</p>
-            )}
+            )} */}
           </div>
 
           {/* Payment Method */}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Payment Method</label>
+            <label className="block text-sm font-medium text-gray-900 mb-2">Payment Method</label>
             <select
               className="input-luxury w-full"
               value={formData.paymentMethod || 'Cash'}
@@ -2370,7 +2370,7 @@ const Booking = () => {
           </div>
 
           {/* Notes */}
-          <div>
+          {/* <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
             <textarea
               className="input-luxury w-full"
@@ -2379,7 +2379,7 @@ const Booking = () => {
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Additional notes..."
             />
-          </div>
+          </div> */}
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center">

@@ -545,8 +545,8 @@ const Billing = () => {
                       <td className="font-medium text-gray-100">{invoice.customerName}</td>
                       <td className="font-semibold">${(invoice.finalAmount || 0).toLocaleString()}</td>
                       <td className="text-gray-400 text-xs italic">${(invoice.lead?.totalAmount || invoice.finalAmount || 0).toLocaleString()}</td>
-                      <td className="text-green-400 font-bold">${(invoice.lead?.paidAmount || 0).toLocaleString()}</td>
-                      <td className="font-semibold text-red-500">${(invoice.lead?.balance || 0).toLocaleString()}</td>
+                      <td className="text-green-400 font-bold">${(invoice.paidAmount || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-red-500">${(invoice.balance || 0).toLocaleString()}</td>
                       <td>
                         <span className={`badge-${invoice.status === 'Paid' ? 'green' : invoice.status === 'Partial' ? 'gold' : 'red'}`}>
                           {invoice.status}
@@ -657,9 +657,9 @@ const Billing = () => {
                         {receipt.lead?.booking?.bookingNumber || receipt.lead?.leadNumber || '-'}
                       </td>
                       <td className="font-medium text-gray-100">{receipt.customerName}</td>
-                      <td className="font-semibold text-gray-400">${(receipt.bookingTotal || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-gray-400">${(receipt.lead?.totalAmount || receipt.invoice?.finalAmount || receipt.bookingTotal || 0).toLocaleString()}</td>
                       <td className="font-bold text-green-400">${(receipt.finalAmount || 0).toLocaleString()}</td>
-                      <td className="font-semibold text-red-500">${(receipt.remainingBalance || 0).toLocaleString()}</td>
+                      <td className="font-semibold text-red-500">${(receipt.remainingBalance !== undefined && receipt.remainingBalance !== null ? receipt.remainingBalance : (receipt.lead?.balance || 0)).toLocaleString()}</td>
                       <td>{receipt.paymentMethod || 'Cash'}</td>
                       <td className="flex gap-2">
                         <Button
