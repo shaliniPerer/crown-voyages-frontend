@@ -54,10 +54,11 @@ export const PAYMENT_METHODS = {
 
 // Default Reminder Templates
 export const DEFAULT_REMINDER_TEMPLATES = {
-  before: `Dear {customer_name},
+  before: `Dear {name},
 
-This is a friendly reminder that your invoice {invoice_number} of {amount} is due on {due_date}.
-
+Name: {name}
+Receipt Number: {receipt_number}
+Due Amount: {due_amount}
 Please make payment at your earliest convenience to avoid any late fees.
 
 Thank you for your business!
@@ -65,24 +66,26 @@ Thank you for your business!
 Best regards,
 Crown Voyages Team`,
 
-  on: `Dear {customer_name},
+  on: `Dear {name},
 
-Your invoice {invoice_number} of {amount} is due today.
+Name: {name}
+Receipt Number: {receipt_number}
+Due Amount: {due_amount}
+Please make payment at your earliest convenience to avoid any late fees.
 
-Please process your payment as soon as possible.
-
-Thank you for your prompt attention.
+Thank you for your business!
 
 Best regards,
 Crown Voyages Team`,
 
-  after: `Dear {customer_name},
+  after: `Dear {name},
 
-Your payment for invoice {invoice_number} of {amount} is now overdue.
+Name: {name}
+Receipt Number: {receipt_number}
+Due Amount: {due_amount}
+Please make payment at your earliest convenience to avoid any late fees.
 
-The due date was {due_date}. Please make payment immediately to avoid additional late fees.
-
-If you have already made this payment, please disregard this notice.
+Thank you for your business!
 
 Best regards,
 Crown Voyages Team`,

@@ -104,29 +104,39 @@ const ReminderScheduler = ({ reminders = [], onSuccess, onDelete }) => {
   ];
 
   const defaultTemplates = {
-    before: `Dear {customer_name},
+    before: `Dear {name},
 
-This is a friendly reminder that your invoice {invoice_number} of ${'{amount}'} is due on {due_date}.
+Name: {name}
+Receipt Number: {receipt_number}
+Due Amount: {due_amount}
+Please make payment at your earliest convenience to avoid any late fees.
 
-Please ensure payment is made by the due date to avoid any late fees.
+Thank you for your business!
 
-Thank you for your business!`,
-    on: `Dear {customer_name},
+Best regards,
+Crown Voyages Team`,
+    on: `Dear {name},
 
-This is a reminder that your invoice {invoice_number} of ${'{amount}'} is due today.
+Name: {name}
+Receipt Number: {receipt_number}
+Due Amount: {due_amount}
+Please make payment at your earliest convenience to avoid any late fees.
 
-Please process your payment at your earliest convenience.
+Thank you for your business!
 
-Thank you!`,
-    after: `Dear {customer_name},
+Best regards,
+Crown Voyages Team`,
+    after: `Dear {name},
 
-Your invoice {invoice_number} of ${'{amount}'} is now overdue. The due date was {due_date}.
+Name: {name}
+Receipt Number: {receipt_number}
+Due Amount: {due_amount}
+Please make payment at your earliest convenience to avoid any late fees.
 
-Please make payment immediately to avoid additional late fees.
+Thank you for your business!
 
-If you have already made payment, please disregard this notice.
-
-Thank you for your prompt attention.`
+Best regards,
+Crown Voyages Team`
   };
 
   return (
@@ -219,16 +229,16 @@ Thank you for your prompt attention.`
             value={formData.template}
             onChange={handleChange}
             rows={8}
-            placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
+            placeholder="Use {name}, {receipt_number}, {due_amount} as placeholders"
             required
           />
 
           <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
             <p className="font-semibold mb-2">Available Placeholders:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li><code className="text-gold-600">{'{customer_name}'}</code> - Customer's name</li>
-              <li><code className="text-gold-600">{'{invoice_number}'}</code> - Invoice number</li>
-              <li><code className="text-gold-600">{'{amount}'}</code> - Invoice amount</li>
+              <li><code className="text-gold-600">{'{name}'}</code> - Customer's name</li>
+              <li><code className="text-gold-600">{'{receipt_number}'}</code> - Receipt number</li>
+              <li><code className="text-gold-600">{'{due_amount}'}</code> - Invoice balance</li>
               <li><code className="text-gold-600">{'{due_date}'}</code> - Payment due date</li>
             </ul>
           </div>

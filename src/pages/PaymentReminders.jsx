@@ -190,29 +190,14 @@ const PaymentReminders = () => {
   const handleSendReminder = async (invoice) => {
     try {
       if (invoice.status === 'Paid' || invoice.status === 'Cancelled') {
-        toast.info('This invoice is already paid or cancelled.');
+        toast.info('This receipt is already paid or cancelled.');
         return;
       }
       
       const type = invoice.status === 'Overdue' ? 'after' : 'before';
-      
-      let subject = `Payment Reminder for Invoice ${invoice.invoiceNumber}`;
-      let template = DEFAULT_REMINDER_TEMPLATES[type] || DEFAULT_REMINDER_TEMPLATES.before;
-
-      try {
-        const matchingReminder = reminders.find(r => r.enabled && r.reminderType === type);
-        if (matchingReminder) {
-          subject = matchingReminder.subject;
-          template = matchingReminder.template;
-        }
-      } catch (e) {
-        console.log("Error matching reminders");
-      }
 
       setSelectedInvoice(invoice);
       setReminderDraft({
-        subject,
-        template,
         type
       });
       setShowReminderDraftModal(true);
@@ -227,9 +212,7 @@ const PaymentReminders = () => {
     try {
       setSendingReminder(true);
       await billingApi.sendManualReminder(selectedInvoice._id, {
-        type: reminderDraft.type,
-        subject: reminderDraft.subject,
-        template: reminderDraft.template
+        type: reminderDraft.type
       });
       toast.success('Reminder email sent successfully');
       setShowReminderDraftModal(false);
@@ -245,7 +228,7 @@ const PaymentReminders = () => {
   const tabs = [
     { id: 'active', label: 'Active Reminders' },
     { id: 'invoices', label: 'Pending Invoices' },
-    { id: 'overdue', label: 'Overdue (No Reminder)' },
+    { id: 'overdue', label: 'Overdue for Reminder' },
     { id: 'history', label: 'Reminder History' },
   ];
 
@@ -621,7 +604,7 @@ const PaymentReminders = () => {
               rows={8}
               value={formData.emailTemplate}
               onChange={(e) => setFormData({ ...formData, emailTemplate: e.target.value })}
-              placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
+              placeholder="Use {name}, {receipt_number}, {due_amount} as placeholders"
               required
             />
           </div>
@@ -629,9 +612,9 @@ const PaymentReminders = () => {
           <div className="text-sm text-gray-400 bg-luxury-light p-3 rounded-lg border border-gold-800/20">
             <p className="font-semibold mb-2">Available Placeholders:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li><code className="text-gold-500">{'{customer_name}'}</code> - Customer's name</li>
-              <li><code className="text-gold-500">{'{invoice_number}'}</code> - Invoice number</li>
-              <li><code className="text-gold-500">{'{amount}'}</code> - Invoice amount</li>
+              <li><code className="text-gold-500">{'{name}'}</code> - Customer's name</li>
+              <li><code className="text-gold-500">{'{receipt_number}'}</code> - Receipt number</li>
+              <li><code className="text-gold-500">{'{due_amount}'}</code> - Invoice balance</li>
               <li><code className="text-gold-500">{'{due_date}'}</code> - Payment due date</li>
             </ul>
           </div>
@@ -677,49 +660,44 @@ const PaymentReminders = () => {
               <span className="font-bold">Recipient:</span> {selectedInvoice?.customerName} ({selectedInvoice?.email})
             </p>
             <p className="text-sm text-gold-500">
-              <span className="font-bold">Invoice:</span> {selectedInvoice?.invoiceNumber} - ${selectedInvoice?.balance?.toLocaleString()} outstanding
+              <span className="font-bold">Receipt:</span> {selectedInvoice?.invoiceNumber} - ${selectedInvoice?.balance?.toLocaleString()} outstanding
             </p>
           </div>
 
-          <Input
-            label="Email Subject"
-            value={reminderDraft.subject}
-            onChange={(e) => setReminderDraft({ ...reminderDraft, subject: e.target.value })}
-            required
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Email Template
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-gold-500 uppercase tracking-wider">
+              Select Reminder Type
             </label>
-            <textarea
-              className="input-luxury w-full"
-              rows={10}
-              value={reminderDraft.template}
-              onChange={(e) => setReminderDraft({ ...reminderDraft, template: e.target.value })}
-              placeholder="Use {customer_name}, {invoice_number}, {amount}, {due_date} as placeholders"
-              required
-            />
-          </div>
-
-          <div className="text-[10px] text-gray-400 bg-luxury-light p-2 rounded border border-gold-800/20">
-            <p className="font-semibold mb-1 uppercase">Available Placeholders:</p>
-            <div className="grid grid-cols-2 gap-x-2">
-              <span>{'{customer_name}'}</span>
-              <span>{'{invoice_number}'}</span>
-              <span>{'{amount}'}</span>
-              <span>{'{due_date}'}</span>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'before', label: 'Before Due' },
+                { id: 'on', label: 'On Due Date' },
+                { id: 'after', label: 'Overdue' }
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setReminderDraft({ ...reminderDraft, type: option.id })}
+                  className={`py-2 px-3 rounded border text-xs font-medium transition-all ${
+                    reminderDraft.type === option.id 
+                      ? 'bg-gold-500 text-black border-gold-500 shadow-lg shadow-gold-500/20' 
+                      : 'bg-black/40 text-gray-400 border-gold-800/30 hover:border-gold-500/50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-6">
             <Button 
               type="submit" 
               variant="primary" 
-              className="flex-1"
+              className="flex-1 text-sm py-3 font-bold uppercase tracking-widest"
               disabled={sendingReminder}
             >
-              {sendingReminder ? 'Sending...' : 'Send Reminder Now'}
+              {sendingReminder ? 'Sending...' : 'Send Reminder'}
             </Button>
             <Button 
               type="button" 
