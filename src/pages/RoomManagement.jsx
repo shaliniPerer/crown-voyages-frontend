@@ -197,7 +197,7 @@ const RoomManagement = () => {
         fd.append('folder', 'rooms');
 
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/upload/images', {
+        const res = await fetch('${API_URL}/upload/images', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
