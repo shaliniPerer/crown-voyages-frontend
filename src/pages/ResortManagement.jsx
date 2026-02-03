@@ -14,6 +14,7 @@ import Modal from '../components/common/Modal';
 import Input from '../components/common/Input';
 import { resortApi } from '../api/resortApi';
 import { toast } from 'react-toastify';
+import axiosInstance from '../api/axios';
 
 const ResortManagement = () => {
   const [resorts, setResorts] = useState([]);
