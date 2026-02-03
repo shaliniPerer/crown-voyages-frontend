@@ -132,12 +132,17 @@ const ResortManagement = () => {
         newImageFiles.forEach(file => fd.append('images', file));
         fd.append('folder', 'resorts');
 
-        const token = localStorage.getItem('token');
-        const res = await fetch('${API_URL}/upload/images', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        });
+        const res = await axiosInstance.post(
+          '/upload/images',
+          fd,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+
+        uploadedUrls = res.data.data.urls;
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Image upload failed');
@@ -243,7 +248,7 @@ const ResortManagement = () => {
           <div>
             <label className="font-medium">Star Rating</label>
             <div className="flex gap-1 mt-1">
-              {[1,2,3,4,5].map(star => (
+              {[1, 2, 3, 4, 5].map(star => (
                 <button key={star} type="button" onClick={() => setFormData({ ...formData, starRating: star })}>
                   <FiStar size={22} className={star <= formData.starRating ? 'text-gold-500 fill-current' : 'text-gray-400'} />
                 </button>

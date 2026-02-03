@@ -196,12 +196,19 @@ const RoomManagement = () => {
         imageFiles.forEach(f => fd.append('images', f));
         fd.append('folder', 'rooms');
 
-        const token = localStorage.getItem('token');
-        const res = await fetch('${API_URL}/upload/images', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-        });
+        // const token = localStorage.getItem('token');
+        const res = await axiosInstance.post(
+          '/upload/images',
+          fd,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+
+        uploadedUrls = res.data.data.urls;
+
 
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Upload failed');
