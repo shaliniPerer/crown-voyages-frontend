@@ -197,7 +197,6 @@ const RoomManagement = () => {
         imageFiles.forEach(f => fd.append('images', f));
         fd.append('folder', 'rooms');
 
-        // const token = localStorage.getItem('token');
         const res = await axiosInstance.post(
           '/upload/images',
           fd,
@@ -208,13 +207,7 @@ const RoomManagement = () => {
           }
         );
 
-        uploadedUrls = res.data.data.urls;
-
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Upload failed');
-
-        imageUrls = [...imageUrls, ...data.data.urls];
+        imageUrls = [...imageUrls, ...res.data.data.urls];
       }
 
       const payload = { ...formData, images: imageUrls };

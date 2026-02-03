@@ -144,11 +144,6 @@ const ResortManagement = () => {
         );
 
         uploadedUrls = res.data.data.urls;
-
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Image upload failed');
-
-        uploadedUrls = data.data.urls;
       }
 
       const payload = {
