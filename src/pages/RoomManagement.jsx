@@ -199,12 +199,7 @@ const RoomManagement = () => {
 
         const res = await axiosInstance.post(
           '/upload/images',
-          fd,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
+          fd
         );
 
         imageUrls = [...imageUrls, ...res.data.data.urls];

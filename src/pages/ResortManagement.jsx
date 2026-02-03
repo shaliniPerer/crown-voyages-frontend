@@ -135,12 +135,7 @@ const ResortManagement = () => {
 
         const res = await axiosInstance.post(
           '/upload/images',
-          fd,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
+          fd
         );
 
         uploadedUrls = res.data.data.urls;
